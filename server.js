@@ -42,11 +42,11 @@ const GAMES = [
   },
   {
     id:          'blacks-dungeon',
-    name:        'Black\'s Dungeon',
+    name:        'Shape of Blacks',
     owner:       'sean',
     status:      'construction',
     version:     null,
-    description: 'A Gungeon-esque action game. Under construction.',
+    description: 'Shape of Blacks. Under construction.',
     url:         null,
     art_url:     null,
     tags:        JSON.stringify(['action', 'roguelike']),
