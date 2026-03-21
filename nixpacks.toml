@@ -1,3 +1,0 @@
-git add nixpacks.toml
-git commit -m "fix: include nodejs_22 in nixpacks setup"
-git push
