@@ -165,12 +165,14 @@ function initDB() {
     CREATE TABLE IF NOT EXISTS achievements (
       id          TEXT PRIMARY KEY,
       game_id     TEXT NOT NULL,
+      game_mode   TEXT,
       name        TEXT NOT NULL,
       description TEXT NOT NULL,
       icon        TEXT DEFAULT '🏆',
-      type        TEXT DEFAULT 'unlock',   -- unlock | progress
+      type        TEXT DEFAULT 'unlock',
       goal        INTEGER DEFAULT 1,
       xp_reward   INTEGER DEFAULT 50,
+      secret      INTEGER DEFAULT 0,
       created_at  INTEGER DEFAULT (strftime('%s','now'))
     );
 
@@ -223,33 +225,225 @@ function initDB() {
 
   // Seed achievements registry (upsert — safe to re-run)
   const upsertAch = db.prepare(`
-    INSERT INTO achievements (id, game_id, name, description, icon, type, goal, xp_reward)
-    VALUES (@id, @game_id, @name, @description, @icon, @type, @goal, @xp_reward)
+    INSERT INTO achievements (id, game_id, game_mode, name, description, icon, type, goal, xp_reward, secret)
+    VALUES (@id, @game_id, @game_mode, @name, @description, @icon, @type, @goal, @xp_reward, @secret)
     ON CONFLICT(id) DO UPDATE SET
       name=excluded.name, description=excluded.description,
-      icon=excluded.icon, goal=excluded.goal, xp_reward=excluded.xp_reward
+      icon=excluded.icon, goal=excluded.goal, xp_reward=excluded.xp_reward,
+      secret=excluded.secret, game_mode=excluded.game_mode
   `);
 
   const ACHIEVEMENTS = [
-    // ── Chaos Hold'Em ────────────────────────────────────────────────────────
-    { id:'ch_first_win',      game_id:'chaos-holdem', name:'First Blood',      description:'Win your first run',                    icon:'🩸', type:'unlock',   goal:1,   xp_reward:100 },
-    { id:'ch_hardcore',       game_id:'chaos-holdem', name:'Hardcore',         description:'Win a run on Hardcore mode',             icon:'💀', type:'unlock',   goal:1,   xp_reward:300 },
-    { id:'ch_boss_slayer',    game_id:'chaos-holdem', name:'Boss Slayer',      description:'Defeat 10 bosses across all runs',       icon:'⚔️', type:'progress', goal:10,  xp_reward:150 },
-    { id:'ch_big_stack',      game_id:'chaos-holdem', name:'Big Stack',        description:'Reach $10,000 chips in a single run',   icon:'💰', type:'progress', goal:10000, xp_reward:200 },
-    { id:'ch_century',        game_id:'chaos-holdem', name:'Century',          description:'Play 100 hands in a single run',        icon:'🃏', type:'progress', goal:100, xp_reward:150 },
-    { id:'ch_chaos_master',   game_id:'chaos-holdem', name:'Chaos Master',     description:'Defeat the final boss',                 icon:'👑', type:'unlock',   goal:1,   xp_reward:500 },
-    { id:'ch_untouchable',    game_id:'chaos-holdem', name:'Untouchable',      description:'Win without ever going broke',          icon:'🛡️', type:'unlock',   goal:1,   xp_reward:250 },
-    { id:'ch_high_roller',    game_id:'chaos-holdem', name:'High Roller',      description:'Score over 50,000 points in a run',     icon:'🎰', type:'progress', goal:50000, xp_reward:200 },
-    { id:'ch_survivor',       game_id:'chaos-holdem', name:'Survivor',         description:'Complete 10 runs total',                icon:'🔟', type:'progress', goal:10,  xp_reward:100 },
-    { id:'ch_dedicated',      game_id:'chaos-holdem', name:'Dedicated',        description:'Complete 50 runs total',                icon:'🎖️', type:'progress', goal:50,  xp_reward:300 },
-    // ── N Games Network (cross-game) ─────────────────────────────────────────
-    { id:'ng_first_session',  game_id:'ngames',       name:'Welcome',          description:'Submit your first session',              icon:'🌐', type:'unlock',   goal:1,   xp_reward:50  },
-    { id:'ng_wall_post',      game_id:'ngames',       name:'Broadcaster',      description:'Post to the wall 10 times',             icon:'📢', type:'progress', goal:10,  xp_reward:100 },
-    { id:'ng_level_5',        game_id:'ngames',       name:'Level 5',          description:'Reach Level 5',                         icon:'⭐', type:'progress', goal:5,   xp_reward:200 },
-    { id:'ng_level_10',       game_id:'ngames',       name:'Veteran',          description:'Reach Level 10',                        icon:'🌟', type:'progress', goal:10,  xp_reward:500 },
+    // ── POKER — Core Gameplay ─────────────────────────────────────────────────
+    { id:'first_win',        game_id:'chaos-casino', name:'First Blood',           description:'Win your first hand',                     icon:'🩸', type:'unlock',   goal:1,     xp_reward:50,  secret:false },
+    { id:'win_streak_3',     game_id:'chaos-casino', name:'On A Roll',             description:'Win 3 hands in a row',                    icon:'🔥', type:'unlock',   goal:1,     xp_reward:50,  secret:false },
+    { id:'win_streak_5',     game_id:'chaos-casino', name:'Unstoppable',           description:'Win 5 hands in a row',                    icon:'⚡', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'win_streak_7',     game_id:'chaos-casino', name:'Volcanic',              description:'Win 7 hands in a row',                    icon:'🌋', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'win_streak_10',    game_id:'chaos-casino', name:'Godmode',               description:'Win 10 hands in a row',                   icon:'👁', type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    { id:'royal_flush',      game_id:'chaos-casino', name:'Perfection',            description:'Win with Royal Flush',                    icon:'👑', type:'unlock',   goal:1,     xp_reward:300, secret:false },
+    { id:'straight_flush',   game_id:'chaos-casino', name:'Colors',                description:'Win with Straight Flush',                 icon:'🎨', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'four_kind',        game_id:'chaos-casino', name:'Quad Damage',           description:'Win with Four of a Kind',                 icon:'4️⃣', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'win_low_hand',     game_id:'chaos-casino', name:'Bottom of the Barrel',  description:'Win with only High Card',                 icon:'🪣', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'all_in_win',       game_id:'chaos-casino', name:"Gambler's Glory",       description:'Win after going all-in',                  icon:'🎲', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'survive_15',       game_id:'chaos-casino', name:'Two Week Notice',       description:'Survive 15 rounds',                       icon:'📋', type:'progress', goal:15,    xp_reward:75,  secret:false },
+    { id:'survive_20',       game_id:'chaos-casino', name:'Marathon',              description:'Survive 20 rounds',                       icon:'🏃', type:'progress', goal:20,    xp_reward:100, secret:false },
+    { id:'survive_30',       game_id:'chaos-casino', name:'Legend',                description:'Survive 30 rounds',                       icon:'🏆', type:'progress', goal:30,    xp_reward:200, secret:false },
+    { id:'ch_century',       game_id:'chaos-casino', name:'Century',               description:'Play 100 hands in one run',               icon:'🃏', type:'progress', goal:100,   xp_reward:150, secret:false },
+    { id:'broke_twice',      game_id:'chaos-casino', name:'Glutton for Punishment','description':'Go broke and revive twice',             icon:'💸', type:'progress', goal:2,     xp_reward:75,  secret:false },
+    { id:'one_life_win',     game_id:'chaos-casino', name:'On the Edge',           description:'Win with exactly 1 life',                 icon:'❤️', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'max_lives',        game_id:'chaos-casino', name:'Extra Lives',           description:'Have 5+ lives at once',                   icon:'💚', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'score_10k',        game_id:'chaos-casino', name:'High Roller',           description:'Score 10,000+ points',                    icon:'💯', type:'progress', goal:10000, xp_reward:100, secret:false },
+    { id:'stack_5k',         game_id:'chaos-casino', name:'High Stack',            description:'Reach $5,000 chips',                      icon:'💰', type:'progress', goal:5000,  xp_reward:75,  secret:false },
+    { id:'stack_10k',        game_id:'chaos-casino', name:'Whale',                 description:'Reach $10,000 chips',                     icon:'🐋', type:'progress', goal:10000, xp_reward:150, secret:false },
+    { id:'stack_25k',        game_id:'chaos-casino', name:'House Money',           description:'Reach $25,000 chips',                     icon:'🏦', type:'progress', goal:25000, xp_reward:250, secret:false },
+    { id:'ch_high_roller',   game_id:'chaos-casino', name:'Whale',                 description:'Score 50,000 points',                     icon:'🎰', type:'progress', goal:50000, xp_reward:200, secret:false },
+    { id:'ch_big_stack',     game_id:'chaos-casino', name:'Mountain',              description:'Hold $10,000 at once',                    icon:'⛰️', type:'progress', goal:10000, xp_reward:200, secret:false },
+    { id:'win_pot_1k',       game_id:'chaos-casino', name:'Thousand Dollar Pot',   description:'Win a $1,000+ pot',                       icon:'💵', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'win_pot_5k',       game_id:'chaos-casino', name:'High Stakes',           description:'Win a $5,000+ pot',                       icon:'💎', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'cash_out',         game_id:'chaos-casino', name:'Know When to Walk',     description:'Cash out any run',                        icon:'🚪', type:'unlock',   goal:1,     xp_reward:50,  secret:false },
+    { id:'first_cashout',    game_id:'chaos-casino', name:'Banker',                description:'Cash out your first run',                 icon:'🏧', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'cash_out_high',    game_id:'chaos-casino', name:'Know Your Limit',       description:'Cash out with 15,000+ score',             icon:'📈', type:'progress', goal:15000, xp_reward:150, secret:false },
+    { id:'cash_out_15',      game_id:'chaos-casino', name:'Patient Player',        description:'Cash out at round 15',                    icon:'⏳', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'cash_out_30',      game_id:'chaos-casino', name:'The Long Game',         description:'Cash out at round 30+',                   icon:'🧘', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'ch_untouchable',   game_id:'chaos-casino', name:'Untouchable',           description:'Win without dropping below $500',         icon:'🛡️', type:'unlock',   goal:1,     xp_reward:250, secret:false },
+    // ── POKER — Curses ────────────────────────────────────────────────────────
+    { id:'curse_10',         game_id:'chaos-casino', name:'Touched by Darkness',   description:'Accumulate 10 curse',                     icon:'🌑', type:'progress', goal:10,    xp_reward:50,  secret:false },
+    { id:'curse_25',         game_id:'chaos-casino', name:'Deeply Cursed',         description:'Reach 25 curse',                          icon:'🕷️', type:'progress', goal:25,    xp_reward:75,  secret:false },
+    { id:'curse_50',         game_id:'chaos-casino', name:'Fully Corrupted',       description:'Accumulate 50 curse',                     icon:'☠️', type:'progress', goal:50,    xp_reward:100, secret:false },
+    { id:'curse_75',         game_id:'chaos-casino', name:'Beyond Saving',         description:'Reach 75 curse',                          icon:'💜', type:'progress', goal:75,    xp_reward:150, secret:false },
+    { id:'curse_100',        game_id:'chaos-casino', name:'The Void Takes You',    description:'Reach 100 curse',                         icon:'🌀', type:'progress', goal:100,   xp_reward:300, secret:false },
+    { id:'ch_curse_80',      game_id:'chaos-casino', name:'The Abyss',             description:'Reach 80 curse',                          icon:'🕳️', type:'progress', goal:80,    xp_reward:200, secret:false },
+    { id:'max_curse',        game_id:'chaos-casino', name:'Fully Gone',            description:'Reach 90+ curse',                         icon:'👻', type:'progress', goal:90,    xp_reward:250, secret:false },
+    { id:'buy_cursed_upgrade',game_id:'chaos-casino',name:'Willful Corruption',    description:'Buy from Curse Shop',                     icon:'🛒', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'curse_win_5',      game_id:'chaos-casino', name:'Cursed but Winning',    description:'Win 5 hands with curse card',             icon:'🃏', type:'progress', goal:5,     xp_reward:100, secret:false },
+    { id:'curse_showAll',    game_id:'chaos-casino', name:'Open Book',             description:'Win with cards visible to all',           icon:'📖', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'cleanse',          game_id:'chaos-casino', name:'Purified',              description:'Use Cleanse active item',                 icon:'✨', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'secret_curse_win', game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:150, secret:true  },
+    // ── POKER — Bosses ────────────────────────────────────────────────────────
+    { id:'boss_first',       game_id:'chaos-casino', name:'Enter the Arena',       description:'Fight first boss',                        icon:'🥊', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'beat_doyle',       game_id:'chaos-casino', name:'Take Down the Godfather','description':'Defeat Doyle Brunson',                 icon:'🎩', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'beat_phil',        game_id:'chaos-casino', name:'Shut Him Up',           description:'Defeat Phil Hellmuth',                    icon:'😤', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'beat_annie',       game_id:'chaos-casino', name:'Out-Thought',           description:'Defeat Annie Duke',                       icon:'🧠', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'beat_stu',         game_id:'chaos-casino', name:'The Kid is Dead',       description:'Defeat Stu Ungar',                        icon:'💀', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'beat_negreanu',    game_id:'chaos-casino', name:'Beat the GOAT',         description:'Defeat Daniel Negreanu',                  icon:'🐐', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'beat_moneymaker',  game_id:'chaos-casino', name:'Account Closed',        description:'Defeat Chris Moneymaker',                 icon:'💳', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'beat_ivey',        game_id:'chaos-casino', name:'Defanged',              description:'Defeat Phil Ivey',                        icon:'🦷', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'beat_ferguson',    game_id:'chaos-casino', name:'Hallelujah',            description:'Defeat Chris Ferguson',                   icon:'✝️', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'beat_hachem',      game_id:'chaos-casino', name:'The Lion Sleeps',       description:'Defeat Joe Hachem',                       icon:'🦁', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'beat_mortensen',   game_id:'chaos-casino', name:'Olé',                   description:'Defeat Carlos Mortensen',                 icon:'🌹', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'beat_xi',          game_id:'chaos-casino', name:'Redistributed',         description:'Defeat Xi Jinping',                       icon:'🐼', type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    { id:'beat_duo',         game_id:'chaos-casino', name:'Two for One',           description:'Defeat Jay and Oakley',                   icon:'👥', type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    { id:'beat_mystery',     game_id:'chaos-casino', name:'Found the Unknown',     description:'Defeat mystery boss',                     icon:'🔮', type:'unlock',   goal:1,     xp_reward:250, secret:false },
+    { id:'beat_all_bosses',  game_id:'chaos-casino', name:'The Circuit',           description:'Defeat every boss in one run',            icon:'🏅', type:'unlock',   goal:1,     xp_reward:500, secret:false },
+    { id:'beat_all_new_bosses',game_id:'chaos-casino',name:'The Full Circuit',     description:'Defeat all 10 bosses',                    icon:'🎖️', type:'unlock',   goal:1,     xp_reward:500, secret:false },
+    { id:'ch_chaos_master',  game_id:'chaos-casino', name:'Chaos Master',          description:'Defeat every boss',                       icon:'👑', type:'unlock',   goal:1,     xp_reward:500, secret:false },
+    { id:'ch_boss_slayer',   game_id:'chaos-casino', name:'Boss Hunter',           description:'Defeat 25 bosses total',                  icon:'⚔️', type:'progress', goal:25,    xp_reward:150, secret:false },
+    { id:'boss_no_damage',   game_id:'chaos-casino', name:'Untouchable',           description:'Defeat boss without losing chips',        icon:'🧊', type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    { id:'beat_xi_hc',       game_id:'chaos-casino', name:"People's Champion",     description:'Defeat Xi in Hardcore',                   icon:'✊', type:'unlock',   goal:1,     xp_reward:300, secret:false },
+    // ── POKER — Upgrades & Modifiers ─────────────────────────────────────────
+    { id:'no_upgrades',      game_id:'chaos-casino', name:'Purist',                description:'Win without buying any upgrade',          icon:'🧹', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'ch_no_upgrade',    game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:150, secret:true  },
+    { id:'full_inventory',   game_id:'chaos-casino', name:'Loaded',                description:'Own 5+ upgrades at once',                 icon:'🎒', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'ch_full_epic',     game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:200, secret:true  },
+    { id:'mod_collector',    game_id:'chaos-casino', name:'Seen It All',           description:'Encounter every modifier',                icon:'📚', type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    { id:'buy_first',        game_id:'chaos-casino', name:'Window Shopper',        description:'Buy first upgrade',                       icon:'🛍️', type:'unlock',   goal:1,     xp_reward:25,  secret:false },
+    { id:'buy_10',           game_id:'chaos-casino', name:'Regular Customer',      description:'Buy 10 upgrades lifetime',                icon:'🏪', type:'progress', goal:10,    xp_reward:75,  secret:false },
+    { id:'skip_3_shops',     game_id:'chaos-casino', name:'Window Shopper Only',   description:'Skip 3 shops in a row',                   icon:'🪟', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'luck_upgrade',     game_id:'chaos-casino', name:'Pressing Your Luck',    description:'Buy a luck-increasing upgrade',           icon:'🍀', type:'unlock',   goal:1,     xp_reward:50,  secret:false },
+    { id:'luck_50',          game_id:'chaos-casino', name:'Born Lucky',            description:'Reach 50 luck',                           icon:'🌟', type:'progress', goal:50,    xp_reward:100, secret:false },
+    { id:'luck_100',         game_id:'chaos-casino', name:"Fortune's Favorite",    description:'Reach 100 luck',                          icon:'⭐', type:'progress', goal:100,   xp_reward:200, secret:false },
+    { id:'use_active_item',  game_id:'chaos-casino', name:'Activated',             description:'Use first active item',                   icon:'🔧', type:'unlock',   goal:1,     xp_reward:25,  secret:false },
+    { id:'active_items_3',   game_id:'chaos-casino', name:'Prepared',              description:'Carry 3 active items',                    icon:'🎽', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'buy_active_3',     game_id:'chaos-casino', name:'Arsenal',               description:'Have 3 different active items',           icon:'🗡️', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'use_smokeB',       game_id:'chaos-casino', name:'Vanishing Act',         description:'Win using Smoke Bomb',                    icon:'💨', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'use_timeStop',     game_id:'chaos-casino', name:'Rewind',                description:'Use Time Stop',                           icon:'⏱️', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'bounty_collect',   game_id:'chaos-casino', name:'Bounty Hunter',         description:'Collect bounty 3 times',                  icon:'🎯', type:'progress', goal:3,     xp_reward:75,  secret:false },
+    // ── POKER — Modifiers ────────────────────────────────────────────────────
+    { id:'survive_lowwins',  game_id:'chaos-casino', name:'Opposite Day',          description:'Win during Upside Down',                  icon:'🙃', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'survive_allinonly',game_id:'chaos-casino', name:'Nuclear Option',        description:'Win during All In or Fold',               icon:'☢️', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'win_ghostshowdown',game_id:'chaos-casino', name:'Ghost Winner',          description:'Win a Ghost Showdown round',              icon:'👻', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'win_combo',        game_id:'chaos-casino', name:'Double Chaos',          description:'Win during Combo Round',                  icon:'💥', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'win_luckround',    game_id:'chaos-casino', name:'Fortune Round',         description:'Win during Luck Round',                   icon:'🍀', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'survive_halfDeck', game_id:'chaos-casino', name:'Half Deck Survivor',    description:'Win during Half Deck',                    icon:'🂠', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'win_ante_frenzy',  game_id:'chaos-casino', name:'Ante King',             description:'Win during Ante Frenzy',                  icon:'🤑', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'win_copy',         game_id:'chaos-casino', name:'Copykiller',            description:'Win during Copycat modifier',             icon:'📋', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'win_jackpot',      game_id:'chaos-casino', name:'Lottery Winner',        description:'Win the $200 Jackpot Lottery',            icon:'🎟️', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    // ── POKER — Progression ──────────────────────────────────────────────────
+    { id:'win_50_hands',     game_id:'chaos-casino', name:'Card Shark',            description:'Win 50 hands total',                      icon:'🦈', type:'progress', goal:50,    xp_reward:100, secret:false },
+    { id:'win_100_hands',    game_id:'chaos-casino', name:'The Grinder',           description:'Win 100 hands total',                     icon:'⚙️', type:'progress', goal:100,   xp_reward:200, secret:false },
+    { id:'ch_survivor',      game_id:'chaos-casino', name:'Still Standing',        description:'Complete 10 runs',                        icon:'🔟', type:'progress', goal:10,    xp_reward:100, secret:false },
+    { id:'ch_dedicated',     game_id:'chaos-casino', name:'Regular',               description:'Complete 50 runs',                        icon:'🎖️', type:'progress', goal:50,    xp_reward:300, secret:false },
+    { id:'level_10',         game_id:'chaos-casino', name:'Getting There',         description:'Reach level 10',                          icon:'📊', type:'progress', goal:10,    xp_reward:100, secret:false },
+    { id:'level_26',         game_id:'chaos-casino', name:'Seasoned Player',       description:'Reach level 26',                          icon:'📈', type:'progress', goal:26,    xp_reward:200, secret:false },
+    { id:'level_52',         game_id:'chaos-casino', name:'Veteran',               description:'Reach level 52',                          icon:'🏆', type:'progress', goal:52,    xp_reward:400, secret:false },
+    { id:'ch_royal_run',     game_id:'chaos-casino', name:'Royal',                 description:'Hit a Royal Flush',                       icon:'♛',  type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    // ── POKER — Hardcore ─────────────────────────────────────────────────────
+    { id:'hardcore_win',     game_id:'chaos-casino', name:'Hardcore',              description:'Complete a run in Hardcore',               icon:'💀', type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    { id:'ch_hardcore',      game_id:'chaos-casino', name:'Death Wish',            description:'Win Hardcore run',                        icon:'☠️', type:'unlock',   goal:1,     xp_reward:300, secret:false },
+    { id:'hardcore_boss',    game_id:'chaos-casino', name:'Iron Will',             description:'Defeat boss in Hardcore',                 icon:'🦾', type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    { id:'hardcore_negreanu',game_id:'chaos-casino', name:'The Impossible',        description:'Defeat Negreanu in Hardcore',              icon:'🎯', type:'unlock',   goal:1,     xp_reward:300, secret:false },
+    { id:'hardcore_25',      game_id:'chaos-casino', name:'Deathwish',             description:'Reach round 25 in Hardcore',              icon:'🎰', type:'progress', goal:25,    xp_reward:250, secret:false },
+    // ── POKER — Crew / Secret ────────────────────────────────────────────────
+    { id:'friend_sean',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:50,  secret:true  },
+    { id:'friend_dart',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:50,  secret:true  },
+    { id:'friend_amari',     game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:50,  secret:true  },
+    { id:'friend_keshawn',   game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:50,  secret:true  },
+    { id:'secret_all_fold',  game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:150, secret:true  },
+    { id:'secret_names_all', game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:200, secret:true  },
+    { id:'secret_broke_5',   game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:150, secret:true  },
+    { id:'secret_no_raise',  game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:150, secret:true  },
+    { id:'secret_xi_trigger',game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:150, secret:true  },
+    { id:'secret_duo_trigger',game_id:'chaos-casino',name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:150, secret:true  },
+    { id:'secret_mystery',   game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:150, secret:true  },
+    { id:'secret_luck_curse',game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:200, secret:true  },
+    { id:'secret_lucky100',  game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:200, secret:true  },
+    { id:'secret_clean_run', game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:150, secret:true  },
+    { id:'secret_duo_hc',    game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:250, secret:true  },
+    { id:'ch_clean_run',     game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:200, secret:true  },
+    // ── BLACKJACK ─────────────────────────────────────────────────────────────
+    { id:'bj_first',         game_id:'chaos-casino', name:'Dealt In',              description:'Complete first Blackjack run',             icon:'🂡', type:'unlock',   goal:1,     xp_reward:50,  secret:false, game_mode:'blackjack' },
+    { id:'bj_21',            game_id:'chaos-casino', name:'Twenty One',            description:'Hit a natural Blackjack',                 icon:'2️⃣1️⃣',type:'unlock',  goal:1,     xp_reward:100, secret:false, game_mode:'blackjack' },
+    { id:'bj_streak_5',      game_id:'chaos-casino', name:'Hot Table',             description:'Win 5 BJ hands in a row',                 icon:'♨️', type:'unlock',   goal:1,     xp_reward:100, secret:false, game_mode:'blackjack' },
+    { id:'bj_streak_10',     game_id:'chaos-casino', name:'Card Counter',          description:'Win 10 BJ hands in a row',                icon:'🔢', type:'unlock',   goal:1,     xp_reward:200, secret:false, game_mode:'blackjack' },
+    { id:'bj_dealer_bust',   game_id:'chaos-casino', name:'Dealer Down',           description:'Win 10 hands via dealer bust',            icon:'💥', type:'progress', goal:10,    xp_reward:100, secret:false, game_mode:'blackjack' },
+    { id:'bj_split_win',     game_id:'chaos-casino', name:'Divide and Conquer',    description:'Win both hands after split',              icon:'✂️', type:'unlock',   goal:1,     xp_reward:100, secret:false, game_mode:'blackjack' },
+    { id:'bj_double_win',    game_id:'chaos-casino', name:'Committed',             description:'Win 20 doubled-down hands',               icon:'✌️', type:'progress', goal:20,    xp_reward:150, secret:false, game_mode:'blackjack' },
+    { id:'bj_boss_1',        game_id:'chaos-casino', name:'First Card',            description:'Defeat first BJ boss',                    icon:'🥊', type:'unlock',   goal:1,     xp_reward:100, secret:false, game_mode:'blackjack' },
+    { id:'bj_boss_all',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:500, secret:true,  game_mode:'blackjack' },
+    { id:'bj_secrets_all',   game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:400, secret:true,  game_mode:'blackjack' },
+    { id:'bj_hardcore',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:300, secret:true,  game_mode:'blackjack' },
+    { id:'bj_no_bust',       game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:250, secret:true,  game_mode:'blackjack' },
+    { id:'bj_curse_heavy',   game_id:'chaos-casino', name:'Dark Table',            description:'Accumulate 60 curse in Blackjack',        icon:'🌑', type:'progress', goal:60,    xp_reward:150, secret:false, game_mode:'blackjack' },
+    { id:'bj_insured',       game_id:'chaos-casino', name:'House Rules',           description:'Win after taking insurance',              icon:'📋', type:'unlock',   goal:1,     xp_reward:100, secret:false, game_mode:'blackjack' },
+    // ── SLOTS ─────────────────────────────────────────────────────────────────
+    { id:'sl_first',         game_id:'chaos-casino', name:'One-Armed Bandit',      description:'Complete first Slots run',                icon:'🎰', type:'unlock',   goal:1,     xp_reward:50,  secret:false, game_mode:'slots' },
+    { id:'sl_jackpot',       game_id:'chaos-casino', name:'Jackpot',               description:'Hit 3-symbol jackpot (50x bet)',           icon:'💫', type:'unlock',   goal:1,     xp_reward:200, secret:false, game_mode:'slots' },
+    { id:'sl_mega_jackpot',  game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:500, secret:true,  game_mode:'slots' },
+    { id:'sl_machine_5',     game_id:'chaos-casino', name:'Machine Runner',        description:'Reach Machine 5',                         icon:'5️⃣', type:'progress', goal:5,     xp_reward:75,  secret:false, game_mode:'slots' },
+    { id:'sl_machine_10',    game_id:'chaos-casino', name:'Deep Spin',             description:'Reach Machine 10',                        icon:'🔟', type:'progress', goal:10,    xp_reward:150, secret:false, game_mode:'slots' },
+    { id:'sl_machine_20',    game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'progress', goal:20,    xp_reward:400, secret:true,  game_mode:'slots' },
+    { id:'sl_boss_1',        game_id:'chaos-casino', name:'Boss Machine',          description:'Beat first boss machine',                 icon:'🤖', type:'unlock',   goal:1,     xp_reward:100, secret:false, game_mode:'slots' },
+    { id:'sl_boss_3',        game_id:'chaos-casino', name:'Triple Threat',         description:'Beat 3 boss machines in one run',         icon:'🎯', type:'progress', goal:3,     xp_reward:200, secret:false, game_mode:'slots' },
+    { id:'sl_perfect',       game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:300, secret:true,  game_mode:'slots' },
+    { id:'sl_curse_reel',    game_id:'chaos-casino', name:'Corrupted Reel',        description:'Survive cursed reel and hit target',      icon:'🌀', type:'unlock',   goal:1,     xp_reward:150, secret:false, game_mode:'slots' },
+    { id:'sl_comeback',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:300, secret:true,  game_mode:'slots' },
+    { id:'sl_hardcore',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:300, secret:true,  game_mode:'slots' },
+    { id:'sl_streak',        game_id:'chaos-casino', name:'On the Pull',           description:'Win 5 consecutive pulls',                 icon:'🎰', type:'unlock',   goal:1,     xp_reward:100, secret:false, game_mode:'slots' },
+    { id:'sl_no_curse',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:200, secret:true,  game_mode:'slots' },
+    // ── CRASH ─────────────────────────────────────────────────────────────────
+    { id:'cr_first',         game_id:'chaos-casino', name:'Liftoff',               description:'Complete first Crash run',                icon:'🚀', type:'unlock',   goal:1,     xp_reward:50,  secret:false, game_mode:'crash' },
+    { id:'cr_10x',           game_id:'chaos-casino', name:'10x',                   description:'Cash out at 10x or higher',               icon:'📈', type:'unlock',   goal:1,     xp_reward:150, secret:false, game_mode:'crash' },
+    { id:'cr_50x',           game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:300, secret:true,  game_mode:'crash' },
+    { id:'cr_100x',          game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:500, secret:true,  game_mode:'crash' },
+    { id:'cr_survive_10',    game_id:'chaos-casino', name:'Survivor',              description:'Survive 10 rounds',                       icon:'🛡️', type:'progress', goal:10,    xp_reward:100, secret:false, game_mode:'crash' },
+    { id:'cr_survive_25',    game_id:'chaos-casino', name:'Crash Veteran',         description:'Survive 25 rounds',                       icon:'🎖️', type:'progress', goal:25,    xp_reward:200, secret:false, game_mode:'crash' },
+    { id:'cr_curse_blocked', game_id:'chaos-casino', name:'Blocked Out',           description:'Get blocked by curse window',             icon:'🚫', type:'unlock',   goal:1,     xp_reward:75,  secret:false, game_mode:'crash' },
+    { id:'cr_curse_escape',  game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:250, secret:true,  game_mode:'crash' },
+    { id:'cr_boss_1',        game_id:'chaos-casino', name:'Tower Toppler',         description:'Defeat first Crash boss',                 icon:'🏗️', type:'unlock',   goal:1,     xp_reward:100, secret:false, game_mode:'crash' },
+    { id:'cr_boss_all',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:500, secret:true,  game_mode:'crash' },
+    { id:'cr_perfect_run',   game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:400, secret:true,  game_mode:'crash' },
+    { id:'cr_hardcore',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:300, secret:true,  game_mode:'crash' },
+    { id:'cr_double_bust',   game_id:'chaos-casino', name:'Twice Burned',          description:'Fail to cash out twice in a row',         icon:'🔥', type:'unlock',   goal:1,     xp_reward:75,  secret:false, game_mode:'crash' },
+    // ── ROULETTE ──────────────────────────────────────────────────────────────
+    { id:'rl_first',         game_id:'chaos-casino', name:'The Wheel Spins',       description:'Complete first Roulette run',              icon:'🎡', type:'unlock',   goal:1,     xp_reward:50,  secret:false, game_mode:'roulette' },
+    { id:'rl_zero',          game_id:'chaos-casino', name:'Zero',                  description:'Win on green zero',                       icon:'🟢', type:'unlock',   goal:1,     xp_reward:200, secret:false, game_mode:'roulette' },
+    { id:'rl_zero_3',        game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:400, secret:true,  game_mode:'roulette' },
+    { id:'rl_red_10',        game_id:'chaos-casino', name:'See Red',               description:'Win 10 red bets in a row',                icon:'🔴', type:'progress', goal:10,    xp_reward:150, secret:false, game_mode:'roulette' },
+    { id:'rl_black_10',      game_id:'chaos-casino', name:'Dressed in Black',      description:'Win 10 black bets in a row',              icon:'⚫', type:'progress', goal:10,    xp_reward:150, secret:false, game_mode:'roulette' },
+    { id:'rl_curse_reveal',  game_id:'chaos-casino', name:'Purple Numbers',        description:'Witness a cursed number reveal',          icon:'💜', type:'unlock',   goal:1,     xp_reward:75,  secret:false, game_mode:'roulette' },
+    { id:'rl_curse_dodge',   game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:200, secret:true,  game_mode:'roulette' },
+    { id:'rl_boss_1',        game_id:'chaos-casino', name:'House Challenger',      description:'Defeat first Roulette boss',              icon:'🏠', type:'unlock',   goal:1,     xp_reward:100, secret:false, game_mode:'roulette' },
+    { id:'rl_boss_all',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:500, secret:true,  game_mode:'roulette' },
+    { id:'rl_straight_up',   game_id:'chaos-casino', name:'Straight Up',           description:'Win 5 straight-up bets',                  icon:'⬆️', type:'progress', goal:5,     xp_reward:100, secret:false, game_mode:'roulette' },
+    { id:'rl_hardcore',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:300, secret:true,  game_mode:'roulette' },
+    { id:'rl_no_curse',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:250, secret:true,  game_mode:'roulette' },
+    { id:'rl_full_board',    game_id:'chaos-casino', name:'Covered',               description:'Place bets on 20+ numbers',               icon:'🗺️', type:'unlock',   goal:1,     xp_reward:100, secret:false, game_mode:'roulette' },
+    // ── CROSS-GAME ────────────────────────────────────────────────────────────
+    { id:'xg_all_games',     game_id:'chaos-casino', name:'Casino Tour',           description:'Complete a run in all 5 games',           icon:'🎪', type:'unlock',   goal:1,     xp_reward:300, secret:false },
+    { id:'xg_10k_each',      game_id:'chaos-casino', name:'Across the Board',      description:'Score 10k+ in 3 different modes',         icon:'📊', type:'progress', goal:3,     xp_reward:300, secret:false },
+    { id:'xg_boss_each',     game_id:'chaos-casino', name:'Bounty Hunter',         description:'Defeat a boss in every mode',             icon:'🎯', type:'unlock',   goal:1,     xp_reward:400, secret:false },
+    { id:'xg_hardcore_all',  game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:1000,secret:true  },
+    { id:'xg_curse_each',    game_id:'chaos-casino', name:'Touch of Darkness',     description:'Take a curse in all 5 modes',             icon:'🌑', type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    { id:'xg_level_20',      game_id:'chaos-casino', name:'Network Veteran',       description:'Reach Network Level 20',                  icon:'🌐', type:'progress', goal:20,    xp_reward:200, secret:false },
+    { id:'xg_level_50',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'progress', goal:50,    xp_reward:1000,secret:true  },
+    { id:'xg_crew_game',     game_id:'chaos-casino', name:'Played Together',       description:'Complete a Crew Game match',              icon:'👥', type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    { id:'xg_duel_win',      game_id:'chaos-casino', name:'Duelist',               description:'Win an online Duel',                      icon:'⚔️', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'xg_duel_streak',   game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:300, secret:true  },
+    { id:'xg_all_same_day',  game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:300, secret:true  },
+    { id:'xg_pristine',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:400, secret:true  },
+    // ── N GAMES NETWORK (Launcher) ────────────────────────────────────────────
+    { id:'ng_first_session', game_id:'ngames',       name:'Welcome',               description:'Submit your first session',               icon:'🌐', type:'unlock',   goal:1,     xp_reward:50,  secret:false },
+    { id:'ng_wall_post',     game_id:'ngames',       name:'Broadcaster',           description:'Post to the wall 10 times',               icon:'📢', type:'progress', goal:10,    xp_reward:100, secret:false },
+    { id:'ng_level_5',       game_id:'ngames',       name:'Level 5',               description:'Reach Level 5',                           icon:'⭐', type:'progress', goal:5,     xp_reward:200, secret:false },
+    { id:'ng_level_10',      game_id:'ngames',       name:'Veteran',               description:'Reach Level 10',                          icon:'🌟', type:'progress', goal:10,    xp_reward:500, secret:false },
+    { id:'ng_first_message', game_id:'ngames',       name:'First Contact',         description:'Send your first DM',                      icon:'✉️', type:'unlock',   goal:1,     xp_reward:25,  secret:false },
+    { id:'ng_crew_online',   game_id:'ngames',       name:'Full Squad',            description:'Be online when all 4 crew are online',    icon:'👥', type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    { id:'ng_radio_1h',      game_id:'ngames',       name:'Tuned In',              description:'Listen to radio for 1 hour total',        icon:'📻', type:'progress', goal:3600,  xp_reward:100, secret:false },
+    { id:'ng_title_maverick',game_id:'ngames',       name:'Maverick',              description:'Reach the Maverick title (Level 25)',      icon:'🎭', type:'progress', goal:25,    xp_reward:500, secret:false },
+    { id:'ng_title_king',    game_id:'ngames',       name:'King',                  description:'Reach the King title (Level 40)',          icon:'♛',  type:'progress', goal:40,    xp_reward:1000,secret:false },
+    { id:'ng_nmaster',       game_id:'ngames',       name:'N Master',              description:'Reach N Master (Level 50)',                icon:'👑', type:'progress', goal:50,    xp_reward:5000,secret:false },
   ];
-
-  for (const a of ACHIEVEMENTS) upsertAch.run(a);
+  for (const a of ACHIEVEMENTS) upsertAch.run({ game_mode: null, secret: 0, ...a, secret: a.secret ? 1 : 0 });
 
   console.log(`[DB] Ready at ${DB_PATH}`);
 }
@@ -426,12 +620,15 @@ app.get('/achievements/:profile_id', (req, res) => {
   const progMap = {};
   for (const p of prog) progMap[p.achievement_id] = p;
 
-  const result = all.map(a => ({
-    ...a,
-    progress:    progMap[a.id]?.progress    || 0,
-    unlocked:    progMap[a.id]?.unlocked    || 0,
-    unlocked_at: progMap[a.id]?.unlocked_at || null,
-  }));
+  const result = all.map(a => {
+    const p = progMap[a.id];
+    const unlocked = p?.unlocked || 0;
+    // Mask secret achievements until unlocked
+    if (a.secret && !unlocked) {
+      return { ...a, name: '???', description: '???', icon: '❓', progress: 0, unlocked: 0, unlocked_at: null };
+    }
+    return { ...a, progress: p?.progress || 0, unlocked, unlocked_at: p?.unlocked_at || null };
+  });
   res.json(result);
 });
 
