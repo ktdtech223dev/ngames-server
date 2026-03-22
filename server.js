@@ -156,7 +156,10 @@ function initDB() {
   const upsertGame = db.prepare(`
     INSERT INTO games (id, name, owner, status, version, description, url, art_url, tags)
     VALUES (@id, @name, @owner, @status, @version, @description, @url, @art_url, @tags)
-    ON CONFLICT(id) DO NOTHING
+    ON CONFLICT(id) DO UPDATE SET
+      name=excluded.name, description=excluded.description,
+      art_url=excluded.art_url, status=excluded.status,
+      updated_at=strftime('%s','now')
   `);
   for (const g of GAMES) upsertGame.run(g);
 
@@ -421,6 +424,20 @@ app.post('/wall/:id/react', (req, res) => {
 app.get('/wall/:id/comments', (req, res) => {
   const comments = stmts.getComments.all(req.params.id);
   res.json(comments);
+});
+
+app.delete('/wall/:id', (req, res) => {
+  const { profile_id } = req.body;
+  if (!profile_id) return res.status(400).json({ error: 'profile_id required' });
+  const post = stmts.getPost.get(req.params.id);
+  if (!post) return res.status(404).json({ error: 'Not found' });
+  // Allow post owner or keshawn (admin) to delete
+  if (post.profile_id !== profile_id && profile_id !== 'keshawn') {
+    return res.status(403).json({ error: 'Not authorized' });
+  }
+  db.prepare('DELETE FROM wall WHERE id = ?').run(req.params.id);
+  broadcast({ type: 'wall_delete', post_id: +req.params.id });
+  res.json({ ok: true });
 });
 
 app.post('/wall/:id/comment', (req, res) => {
