@@ -280,7 +280,7 @@ app.post('/admin/games/:id/art', (req, res) => {
     fs.writeFileSync(destPath, Buffer.from(data, 'base64'));
 
     const art_url = `/assets/${fname}`;
-    db.prepare('UPDATE games SET art_url = ?, updated_at = strftime('%s','now') WHERE id = ?')
+    db.prepare("UPDATE games SET art_url = ?, updated_at = strftime('%s','now') WHERE id = ?")
       .run(art_url, req.params.id);
 
     console.log(`[Art] Updated art for ${req.params.id}: ${art_url}`);
