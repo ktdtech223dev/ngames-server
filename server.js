@@ -37,7 +37,7 @@ const GAMES = [
     version:     '1.0.0',
     description: 'Roguelike poker. Run-based chaos.',
     url:         'https://chaos-holdem-server3-production.up.railway.app',
-    art_url:     null,
+    art_url:     '/assets/chaos-holdem-banner.png',
     tags:        JSON.stringify(['poker', 'roguelike', 'cards']),
   },
   {
@@ -251,6 +251,51 @@ app.use(express.json());
 // Health
 app.get('/', (_, res) => res.json({ service: 'N Games Network', status: 'ok', ts: Date.now() }));
 app.get('/health', (_, res) => res.json({ ok: true }));
+app.get('/admin', (_, res) => res.sendFile(path.join(__dirname, 'banner-upload.html')));
+
+// Static assets (game banners, etc.)
+const ASSETS_DIR = fs.existsSync('/data') ? '/data/assets' : path.join(__dirname, 'assets');
+if (!fs.existsSync(ASSETS_DIR)) fs.mkdirSync(ASSETS_DIR, { recursive: true });
+app.use('/assets', express.static(ASSETS_DIR));
+
+// ── Admin: update game art (POST /admin/games/:id/art) ───────────────────────
+// Accepts a PNG/JPG as base64 in the request body
+// Protected by ADMIN_KEY env var (set in Railway Variables)
+const ADMIN_KEY = process.env.ADMIN_KEY || 'ngames-admin';
+
+app.post('/admin/games/:id/art', (req, res) => {
+  const { key, image_base64, filename } = req.body;
+  if (key !== ADMIN_KEY) return res.status(401).json({ error: 'Unauthorized' });
+
+  const game = stmts.getGame.get(req.params.id);
+  if (!game) return res.status(404).json({ error: 'Game not found' });
+
+  if (!image_base64) return res.status(400).json({ error: 'image_base64 required' });
+
+  try {
+    const ext      = (filename || 'banner.png').split('.').pop().toLowerCase();
+    const fname    = `${req.params.id}-banner.${ext}`;
+    const destPath = path.join(ASSETS_DIR, fname);
+    const data     = image_base64.replace(/^data:image\/\w+;base64,/, '');
+    fs.writeFileSync(destPath, Buffer.from(data, 'base64'));
+
+    const art_url = `/assets/${fname}`;
+    db.prepare('UPDATE games SET art_url = ?, updated_at = strftime('%s','now') WHERE id = ?')
+      .run(art_url, req.params.id);
+
+    console.log(`[Art] Updated art for ${req.params.id}: ${art_url}`);
+    res.json({ ok: true, art_url });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Admin: list games (GET /admin/games) ─────────────────────────────────────
+app.get('/admin/games', (req, res) => {
+  const { key } = req.query;
+  if (key !== ADMIN_KEY) return res.status(401).json({ error: 'Unauthorized' });
+  res.json(stmts.getGames.all().map(g => ({ ...g, tags: safeJSON(g.tags, []) })));
+});
 
 // ── Profiles ──────────────────────────────────────────────────────────────────
 
