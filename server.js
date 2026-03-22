@@ -790,6 +790,20 @@ app.get('/admin', (_, res) => res.sendFile(path.join(__dirname, 'banner-upload.h
 // Static assets (game banners, etc.)
 const ASSETS_DIR = fs.existsSync('/data') ? '/data/assets' : path.join(__dirname, 'assets');
 if (!fs.existsSync(ASSETS_DIR)) fs.mkdirSync(ASSETS_DIR, { recursive: true });
+
+// Copy bundled assets to volume on every boot (so banners survive deploys)
+const BUNDLED_ASSETS = path.join(__dirname, 'assets');
+if (fs.existsSync(BUNDLED_ASSETS)) {
+  for (const file of fs.readdirSync(BUNDLED_ASSETS)) {
+    const src  = path.join(BUNDLED_ASSETS, file);
+    const dest = path.join(ASSETS_DIR, file);
+    if (!fs.existsSync(dest)) {
+      try { fs.copyFileSync(src, dest); console.log('[Assets] Copied', file, 'to volume'); }
+      catch(e) { console.warn('[Assets] Could not copy', file, e.message); }
+    }
+  }
+}
+
 app.use('/assets', express.static(ASSETS_DIR));
 
 // ── Admin: update game art (POST /admin/games/:id/art) ───────────────────────
