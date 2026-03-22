@@ -160,6 +160,42 @@ let currentProfile=null, presence={}, profiles={}, wallPosts=[], allGames=[], _l
 let activeConvo=null, currentTab='god', ws=null, pinBuffer='', _unread={};
 let serverStatus={};
 
+// ── App config (launcher title) ───────────────────────────────────────────────
+const NGAMES_URL = '';  // empty = same origin
+const ADMIN_KEY  = 'ngames-admin'; // matches ADMIN_KEY env var on server
+let _appConfig   = {};
+
+async function fetchAppConfig() {
+  try {
+    const r = await fetch('/config');
+    _appConfig = await r.json();
+  } catch(e) {}
+}
+
+async function setLauncherTitle() {
+  const input  = document.getElementById('title-input');
+  const status = document.getElementById('title-status');
+  const value  = (input?.value || '').trim();
+  if (!value) return;
+  if (status) status.textContent = 'Saving...';
+  try {
+    const r = await fetch('/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'launcher_title', value, admin_key: ADMIN_KEY }),
+    });
+    const data = await r.json();
+    if (data.ok) {
+      _appConfig.launcher_title = value;
+      if (status) { status.textContent = `✓ Set to "${value}" — live for all users`; status.style.color = '#80e060'; }
+    } else {
+      if (status) { status.textContent = data.error || 'Failed'; status.style.color = '#e04040'; }
+    }
+  } catch(e) {
+    if (status) { status.textContent = 'Error: ' + e.message; status.style.color = '#e04040'; }
+  }
+}
+
 function pinKey(k){if(pinBuffer.length>=4)return;pinBuffer+=k;updatePinDots();if(pinBuffer.length===4)setTimeout(submitPin,120);}
 function pinDel(){pinBuffer=pinBuffer.slice(0,-1);updatePinDots();document.getElementById('pin-error').textContent='';}
 function updatePinDots(){for(let i=0;i<4;i++)document.getElementById('d'+i).className='pin-dot'+(i<pinBuffer.length?' filled':'');}
@@ -187,7 +223,7 @@ function renderProfileBar(){
 }
 
 async function loadAll(){
-  await Promise.all([loadPresence(),loadProfiles(),loadWall(),loadLeaderboard(),loadGames()]);
+  await Promise.all([loadPresence(),loadProfiles(),loadWall(),loadLeaderboard(),loadGames(),fetchAppConfig()]);
   renderCurrentTab();
 }
 
