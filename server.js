@@ -197,6 +197,22 @@ function initDB() {
     CREATE INDEX IF NOT EXISTS idx_pa_achievement   ON profile_achievements(achievement_id);
   `);
 
+  // ── Migrations — add columns that may not exist on older DBs ───────────────
+  const migrations = [
+    "ALTER TABLE achievements ADD COLUMN game_mode TEXT",
+    "ALTER TABLE achievements ADD COLUMN secret INTEGER DEFAULT 0",
+    "ALTER TABLE sessions ADD COLUMN game_mode TEXT",
+    "ALTER TABLE sessions ADD COLUMN game_version TEXT",
+    "ALTER TABLE sessions ADD COLUMN outcome TEXT DEFAULT 'bust'",
+    "ALTER TABLE presence ADD COLUMN current_game TEXT",
+    "ALTER TABLE presence ADD COLUMN playtime_total INTEGER DEFAULT 0",
+    "ALTER TABLE presence ADD COLUMN last_ping_at INTEGER DEFAULT 0",
+    "ALTER TABLE wall ADD COLUMN game_mode TEXT",
+  ];
+  for (const sql of migrations) {
+    try { db.prepare(sql).run(); } catch(e) { /* column already exists */ }
+  }
+
   // Seed crew profiles
   const upsert = db.prepare(`
     INSERT INTO profiles (id, name, color, suit, initial)
@@ -520,7 +536,7 @@ const stmts = {
   getGame:    db.prepare('SELECT * FROM games WHERE id = ?'),
   getAchievements:       db.prepare('SELECT * FROM achievements WHERE game_id = ? OR game_id = ?'),
   getAllAchievements:    db.prepare('SELECT * FROM achievements'),
-  getProfileAchievements: db.prepare('SELECT pa.*, a.name, a.description, a.icon, a.type, a.goal, a.xp_reward, a.game_id FROM profile_achievements pa JOIN achievements a ON pa.achievement_id = a.id WHERE pa.profile_id = ?'),
+  getProfileAchievements: db.prepare('SELECT pa.*, a.name, a.description, a.icon, a.type, a.goal, a.xp_reward, a.game_id, a.game_mode, a.secret FROM profile_achievements pa JOIN achievements a ON pa.achievement_id = a.id WHERE pa.profile_id = ?'),
   upsertProgress: db.prepare(`
     INSERT INTO profile_achievements (profile_id, achievement_id, progress, unlocked, unlocked_at)
     VALUES (@profile_id, @achievement_id, @progress, @unlocked, @unlocked_at)
