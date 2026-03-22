@@ -197,6 +197,17 @@ function initDB() {
     CREATE INDEX IF NOT EXISTS idx_pa_achievement   ON profile_achievements(achievement_id);
   `);
 
+  // App config table — key/value store for global settings
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS app_config (
+      key        TEXT PRIMARY KEY,
+      value      TEXT NOT NULL,
+      updated_at INTEGER DEFAULT (strftime('%s','now'))
+    );
+  `);
+  // Seed default launcher title
+  db.prepare(`INSERT INTO app_config (key, value) VALUES ('launcher_title', 'N GAMES') ON CONFLICT(key) DO NOTHING`).run();
+
   // ── Migrations — add columns that may not exist on older DBs ───────────────
   const migrations = [
     "ALTER TABLE achievements ADD COLUMN game_mode TEXT",
@@ -776,6 +787,28 @@ app.get('/casino/history/:profile_id', (req, res) => {
   res.json(rows.map(r => ({ ...r, data: safeJSON(r.data, {}) })));
 });
 
+// ── App Config ───────────────────────────────────────────────────────────────
+
+// GET /config — returns all config values (public, launcher fetches on boot)
+app.get('/config', (req, res) => {
+  const rows = db.prepare('SELECT key, value FROM app_config').all();
+  const cfg  = {};
+  for (const r of rows) cfg[r.key] = r.value;
+  res.json(cfg);
+});
+
+// POST /config — update a config value (God Panel only, requires admin key)
+app.post('/config', (req, res) => {
+  const { key, value, admin_key } = req.body;
+  if (admin_key !== ADMIN_KEY) return res.status(401).json({ error: 'Unauthorized' });
+  if (!key || value == null)   return res.status(400).json({ error: 'key + value required' });
+  db.prepare(`INSERT INTO app_config (key, value, updated_at) VALUES (?, ?, strftime('%s','now'))
+    ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`).run(key, String(value));
+  // Broadcast to all connected clients so they update live
+  broadcast({ type: 'config_update', key, value: String(value) });
+  res.json({ ok: true });
+});
+
 // ── Crash ticker ─────────────────────────────────────────────────────────────
 // POST /crash/run — game calls this when a crash round ends; broadcasts to all
 app.post('/crash/run', (req, res) => {
@@ -883,9 +916,11 @@ app.post('/presence/ping', (req, res) => {
   const now  = Math.floor(Date.now() / 1000);
   const prev = db.prepare('SELECT last_ping_at, playtime_total FROM presence WHERE profile_id = ?').get(profile_id);
 
-  // NP for playtime — 1 NP per minute, capped at 90s per ping to prevent abuse
+  // NP for playtime — 1 NP per minute, only while actively in a real game
+  const LAUNCHER_IDS = new Set(['launcher', 'mobile', null, undefined, '']);
+  const inGame = game_id && !LAUNCHER_IDS.has(game_id);
   let np_awarded = 0;
-  if (prev && game_id) {
+  if (prev && inGame) {
     const elapsed = now - (prev.last_ping_at || now);
     const cappedSeconds = Math.min(elapsed, 90);
     const np = Math.floor(cappedSeconds / 60);
@@ -997,6 +1032,164 @@ app.post('/sessions', (req, res) => {
       stmts.updateNP.run(npGain, newLevel, profile_id);
       tryUnlockAchievement(profile_id, 'ng_first_session', 1);
     }
+  }
+
+  // ── Server-side achievement tracking ──────────────────────────────────────
+  // These are achievements the server can track from session data alone
+  // without needing explicit unlockAchievement() calls from the game
+
+  try {
+    const gid    = normGameId(game_id);
+    const d      = safeJSON(JSON.stringify(data), {});
+    const isWin  = WIN_OUTCOMES.has(normalizedOutcome);
+
+    // First session / run counts
+    tryUnlockAchievement(profile_id, 'ng_first_session', 1);
+
+    // Total run count across all chaos-casino modes
+    const totalRuns = db.prepare(
+      "SELECT COUNT(*) as cnt FROM sessions WHERE profile_id=? AND (game_id='chaos-casino' OR game_id='chaos-holdem') AND outcome != 'saved'"
+    ).get(profile_id)?.cnt || 0;
+    tryUnlockAchievement(profile_id, 'ch_survivor',  totalRuns);
+    tryUnlockAchievement(profile_id, 'ch_dedicated', totalRuns);
+
+    // Score-based
+    if (score >= 10000)  tryUnlockAchievement(profile_id, 'score_10k',      1);
+    if (score >= 50000)  tryUnlockAchievement(profile_id, 'ch_high_roller',  1);
+    if (score >= 15000)  tryUnlockAchievement(profile_id, 'cash_out_high',   score);
+
+    // Chip-based (from data payload)
+    const chips = d.chips || 0;
+    if (chips >= 5000)   tryUnlockAchievement(profile_id, 'stack_5k',   1);
+    if (chips >= 10000)  { tryUnlockAchievement(profile_id, 'stack_10k', 1); tryUnlockAchievement(profile_id, 'ch_big_stack', chips); }
+    if (chips >= 25000)  tryUnlockAchievement(profile_id, 'stack_25k',  1);
+
+    // Win / cashout
+    if (isWin || normalizedOutcome === 'cashout') {
+      tryUnlockAchievement(profile_id, 'cash_out',      1);
+      // First cashout
+      const priorCashouts = db.prepare(
+        "SELECT COUNT(*) as cnt FROM sessions WHERE profile_id=? AND outcome IN ('win','cashout') AND id != ?"
+      ).get(profile_id, info.lastInsertRowid)?.cnt || 0;
+      if (priorCashouts === 0) tryUnlockAchievement(profile_id, 'first_cashout', 1);
+    }
+
+    // Hardcore
+    if (d.hardcore && isWin) {
+      tryUnlockAchievement(profile_id, 'hardcore_win', 1);
+      tryUnlockAchievement(profile_id, 'ch_hardcore',  1);
+    }
+
+    // Untouchable — win without going broke
+    if (isWin && !d.wentBroke) tryUnlockAchievement(profile_id, 'ch_untouchable', 1);
+
+    // Rounds survived
+    const rounds = d.round || d.hands || 0;
+    if (rounds >= 15)  tryUnlockAchievement(profile_id, 'survive_15', rounds);
+    if (rounds >= 20)  tryUnlockAchievement(profile_id, 'survive_20', rounds);
+    if (rounds >= 30)  tryUnlockAchievement(profile_id, 'survive_30', rounds);
+    if (rounds >= 100) tryUnlockAchievement(profile_id, 'ch_century', rounds);
+
+    // Win streaks (from data)
+    const winStreak = d.winStreak || d.winStreakCurrent || d.win_streak || 0;
+    if (winStreak >= 3)  tryUnlockAchievement(profile_id, 'win_streak_3',  1);
+    if (winStreak >= 5)  tryUnlockAchievement(profile_id, 'win_streak_5',  1);
+    if (winStreak >= 7)  tryUnlockAchievement(profile_id, 'win_streak_7',  1);
+    if (winStreak >= 10) tryUnlockAchievement(profile_id, 'win_streak_10', 1);
+
+    // Lifetime wins (cumulative from sessions)
+    const totalWins = db.prepare(
+      "SELECT COALESCE(SUM(CAST(json_extract(data,'$.wins') AS INTEGER)),0) as w FROM sessions WHERE profile_id=? AND (game_id='chaos-casino' OR game_id='chaos-holdem')"
+    ).get(profile_id)?.w || 0;
+    if (totalWins >= 1)   tryUnlockAchievement(profile_id, 'first_win',      1);
+    if (totalWins >= 50)  tryUnlockAchievement(profile_id, 'win_50_hands',   totalWins);
+    if (totalWins >= 100) tryUnlockAchievement(profile_id, 'win_100_hands',  totalWins);
+
+    // Bosses (cumulative)
+    const totalBosses = db.prepare(
+      "SELECT COALESCE(SUM(CAST(json_extract(data,'$.bosses') AS INTEGER)),0) as b FROM sessions WHERE profile_id=? AND (game_id='chaos-casino' OR game_id='chaos-holdem')"
+    ).get(profile_id)?.b || 0;
+    if (totalBosses >= 1)  tryUnlockAchievement(profile_id, 'boss_first',    1);
+    if (totalBosses >= 25) tryUnlockAchievement(profile_id, 'ch_boss_slayer', totalBosses);
+
+    // Cross-game: completed a run in all 5 modes
+    const modesPlayed = db.prepare(
+      "SELECT COUNT(DISTINCT game_mode) as cnt FROM sessions WHERE profile_id=? AND (game_id='chaos-casino' OR game_id='chaos-holdem') AND game_mode IS NOT NULL AND outcome != 'saved'"
+    ).get(profile_id)?.cnt || 0;
+    if (modesPlayed >= 5) tryUnlockAchievement(profile_id, 'xg_all_games', 1);
+
+    // Cross-game: 10k+ in 3 modes
+    const modesOver10k = db.prepare(
+      "SELECT COUNT(*) as cnt FROM mode_stats WHERE profile_id=? AND (game_id='chaos-casino' OR game_id='chaos-holdem') AND best_score >= 10000"
+    ).get(profile_id)?.cnt || 0;
+    if (modesOver10k >= 3) tryUnlockAchievement(profile_id, 'xg_10k_each', modesOver10k);
+
+    // Level achievements after NP update
+    const updatedProf = stmts.getProfile.get(profile_id);
+    const lvl = updatedProf?.level || 1;
+    if (lvl >= 5)  tryUnlockAchievement(profile_id, 'ng_level_5',       lvl);
+    if (lvl >= 10) tryUnlockAchievement(profile_id, 'ng_level_10',      lvl);
+    if (lvl >= 20) tryUnlockAchievement(profile_id, 'xg_level_20',      lvl);
+    if (lvl >= 25) tryUnlockAchievement(profile_id, 'ng_title_maverick', lvl);
+    if (lvl >= 40) tryUnlockAchievement(profile_id, 'ng_title_king',    lvl);
+    if (lvl >= 50) { tryUnlockAchievement(profile_id, 'ng_nmaster', lvl); tryUnlockAchievement(profile_id, 'xg_level_50', lvl); }
+
+    // Mode-specific first completions
+    if (game_mode === 'blackjack') tryUnlockAchievement(profile_id, 'bj_first',  1);
+    if (game_mode === 'slots')     tryUnlockAchievement(profile_id, 'sl_first',  1);
+    if (game_mode === 'crash')     tryUnlockAchievement(profile_id, 'cr_first',  1);
+    if (game_mode === 'roulette')  tryUnlockAchievement(profile_id, 'rl_first',  1);
+    if (game_mode === 'poker')     tryUnlockAchievement(profile_id, 'first_win', isWin ? 1 : 0);
+
+    // Crash specific
+    if (game_mode === 'crash') {
+      const mult = d.mult || d.best_mult || 0;
+      if (mult >= 10)  tryUnlockAchievement(profile_id, 'cr_10x',  1);
+      if (mult >= 50)  tryUnlockAchievement(profile_id, 'cr_50x',  1);
+      if (mult >= 100) tryUnlockAchievement(profile_id, 'cr_100x', 1);
+      const crRounds = db.prepare(
+        "SELECT COUNT(*) as cnt FROM sessions WHERE profile_id=? AND game_mode='crash' AND outcome IN ('win','cashout')"
+      ).get(profile_id)?.cnt || 0;
+      tryUnlockAchievement(profile_id, 'cr_survive_10', crRounds);
+      tryUnlockAchievement(profile_id, 'cr_survive_25', crRounds);
+    }
+
+    // Slots specific
+    if (game_mode === 'slots') {
+      const machine = d.machine || d.best_machine || 0;
+      if (machine >= 5)  tryUnlockAchievement(profile_id, 'sl_machine_5',  machine);
+      if (machine >= 10) tryUnlockAchievement(profile_id, 'sl_machine_10', machine);
+      if (machine >= 20) tryUnlockAchievement(profile_id, 'sl_machine_20', machine);
+    }
+
+    // Roulette specific
+    if (game_mode === 'roulette') {
+      const spin = d.spin || d.best_spin || 0;
+      tryUnlockAchievement(profile_id, 'rl_straight_up', spin);
+    }
+
+    // Curse accumulation
+    const curse = d.curse || d.totalCurse || 0;
+    if (curse >= 10)  tryUnlockAchievement(profile_id, 'curse_10',    curse);
+    if (curse >= 25)  tryUnlockAchievement(profile_id, 'curse_25',    curse);
+    if (curse >= 50)  tryUnlockAchievement(profile_id, 'curse_50',    curse);
+    if (curse >= 75)  tryUnlockAchievement(profile_id, 'curse_75',    curse);
+    if (curse >= 80)  tryUnlockAchievement(profile_id, 'ch_curse_80', curse);
+    if (curse >= 90)  tryUnlockAchievement(profile_id, 'max_curse',   curse);
+    if (curse >= 100) tryUnlockAchievement(profile_id, 'curse_100',   curse);
+    if (game_mode === 'blackjack' && curse >= 60) tryUnlockAchievement(profile_id, 'bj_curse_heavy', curse);
+
+    // Luck accumulation
+    const luck = d.luck || 0;
+    if (luck >= 50)  tryUnlockAchievement(profile_id, 'luck_50',  luck);
+    if (luck >= 100) tryUnlockAchievement(profile_id, 'luck_100', luck);
+
+    // Cash out at round milestones
+    if (isWin && rounds >= 15) tryUnlockAchievement(profile_id, 'cash_out_15', 1);
+    if (isWin && rounds >= 30) tryUnlockAchievement(profile_id, 'cash_out_30', 1);
+
+  } catch(achErr) {
+    console.error('[Session Achievements]', achErr.message);
   }
 
   broadcast({ type: 'session', profile_id, game_id: normGameId(game_id), game_mode, score, outcome: normalizedOutcome, session_id: info.lastInsertRowid });

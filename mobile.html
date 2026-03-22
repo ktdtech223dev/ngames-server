@@ -280,6 +280,22 @@ async function renderGod(){
   const totalXP=Object.values(profiles).reduce((a,p)=>a+(p.xp||0),0);
 
   document.getElementById('tab-god').innerHTML=`
+    <div class="sec">
+      <div class="sec-label">⚡ Launcher Title</div>
+      <div class="card">
+        <div class="card-row" style="flex-direction:column;align-items:flex-start;gap:8px">
+          <div style="font-size:11px;color:rgba(255,255,255,0.5)">Changes the top-left title for ALL users live</div>
+          <input id="title-input" type="text" maxlength="32" placeholder="N GAMES"
+            style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:6px;
+                   padding:8px 10px;color:#fff;font-size:14px;font-weight:700;letter-spacing:0.05em;outline:none"
+            value="${_appConfig.launcher_title||'N GAMES'}">
+          <button onclick="setLauncherTitle()"
+            style="width:100%;padding:8px;background:var(--acc,#80e060);color:#000;border:none;border-radius:6px;
+                   font-size:12px;font-weight:700;cursor:pointer">SET TITLE</button>
+          <div id="title-status" style="font-size:10px;color:rgba(255,255,255,0.4)"></div>
+        </div>
+      </div>
+    </div>
     <div class="sec"><div class="sec-label">Servers (${SERVERS.length})</div>${serversHTML}</div>
     <div class="sec"><div class="sec-label">Network</div><div class="card">
       <div class="card-row"><span class="row-label">Crew online</span><span class="row-val ${onlineCrew.length>0?'green':'muted'}">${onlineCrew.length} / ${CREW.length}</span></div>
