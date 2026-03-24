@@ -41,6 +41,17 @@ const GAMES = [
     tags:        JSON.stringify(['casino','roguelike','poker','blackjack','slots','crash','roulette']),
   },
   {
+    id:          'project-x',
+    name:        'Project X',
+    owner:       'keshawn',
+    status:      'construction',
+    version:     null,
+    description: '[REDACTED]',
+    url:         null,
+    art_url:     null,
+    tags:        JSON.stringify(['secret']),
+  },
+  {
     id:          'blacks-dungeon',
     name:        'Shape of Blacks',
     owner:       'sean',
@@ -207,6 +218,30 @@ function initDB() {
   `);
   // Seed default launcher title
   db.prepare(`INSERT INTO app_config (key, value) VALUES ('launcher_title', 'N GAMES') ON CONFLICT(key) DO NOTHING`).run();
+
+  // Multiplayer rooms
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS rooms (
+      id           TEXT PRIMARY KEY,
+      game_id      TEXT NOT NULL,
+      mode         TEXT NOT NULL DEFAULT 'coop',
+      host_id      TEXT NOT NULL REFERENCES profiles(id),
+      status       TEXT NOT NULL DEFAULT 'waiting',
+      max_players  INTEGER DEFAULT 4,
+      created_at   INTEGER DEFAULT (strftime('%s','now')),
+      updated_at   INTEGER DEFAULT (strftime('%s','now'))
+    );
+    CREATE TABLE IF NOT EXISTS room_members (
+      room_id     TEXT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+      profile_id  TEXT NOT NULL REFERENCES profiles(id),
+      state       TEXT DEFAULT '{}',
+      ready       INTEGER DEFAULT 0,
+      joined_at   INTEGER DEFAULT (strftime('%s','now')),
+      PRIMARY KEY (room_id, profile_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_rooms_game    ON rooms(game_id, status);
+    CREATE INDEX IF NOT EXISTS idx_room_members  ON room_members(room_id);
+  `);
 
   // ── Migrations — add columns that may not exist on older DBs ───────────────
   const migrations = [
@@ -840,6 +875,189 @@ app.post('/config', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Multiplayer Rooms ─────────────────────────────────────────────────────────
+
+function roomCode() {
+  // Short human-readable room code e.g. "AMBER-7291"
+  const words = ['EMBER','BLADE','STORM','RAVEN','CRYPT','SMOKE','FLAME','SHADE','VOID','IRON'];
+  return words[Math.floor(Math.random()*words.length)] + '-' + Math.floor(1000+Math.random()*9000);
+}
+
+function getRoomWithMembers(room_id) {
+  const room    = db.prepare('SELECT * FROM rooms WHERE id=?').get(room_id);
+  if (!room) return null;
+  const members = db.prepare(`
+    SELECT rm.*, p.name, p.color, p.initial, p.suit
+    FROM room_members rm JOIN profiles p ON p.id=rm.profile_id
+    WHERE rm.room_id=?
+  `).all(room_id);
+  return { ...room, members: members.map(m => ({ ...m, state: safeJSON(m.state, {}) })) };
+}
+
+// POST /rooms/create
+app.post('/rooms/create', (req, res) => {
+  const { profile_id, game_id, mode = 'coop', max_players = 4 } = req.body;
+  if (!profile_id || !game_id) return res.status(400).json({ error: 'profile_id + game_id required' });
+
+  // Remove player from any existing room first
+  db.prepare('DELETE FROM room_members WHERE profile_id=?').run(profile_id);
+
+  const id = roomCode();
+  db.prepare(`INSERT INTO rooms (id, game_id, mode, host_id, max_players) VALUES (?,?,?,?,?)`)
+    .run(id, game_id, mode, profile_id, max_players);
+  db.prepare(`INSERT INTO room_members (room_id, profile_id) VALUES (?,?)`)
+    .run(id, profile_id);
+
+  const room = getRoomWithMembers(id);
+  broadcast({ type: 'room_created', room });
+  console.log(`[Room] ${profile_id} created room ${id} (${game_id}/${mode})`);
+  res.json({ ok: true, room });
+});
+
+// POST /rooms/join
+app.post('/rooms/join', (req, res) => {
+  const { profile_id, room_id } = req.body;
+  if (!profile_id || !room_id) return res.status(400).json({ error: 'profile_id + room_id required' });
+
+  const room = db.prepare('SELECT * FROM rooms WHERE id=?').get(room_id);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+  if (room.status === 'in_game') return res.status(400).json({ error: 'Game already in progress' });
+
+  const memberCount = db.prepare('SELECT COUNT(*) as cnt FROM room_members WHERE room_id=?').get(room_id).cnt;
+  if (memberCount >= room.max_players) return res.status(400).json({ error: 'Room is full' });
+
+  // Remove from any other room first
+  db.prepare('DELETE FROM room_members WHERE profile_id=?').run(profile_id);
+  db.prepare(`INSERT OR IGNORE INTO room_members (room_id, profile_id) VALUES (?,?)`).run(room_id, profile_id);
+
+  const updated = getRoomWithMembers(room_id);
+  broadcast({ type: 'room_update', room: updated });
+  broadcastToRoom(room_id, { type: 'player_joined', profile_id, room: updated });
+  res.json({ ok: true, room: updated });
+});
+
+// POST /rooms/leave
+app.post('/rooms/leave', (req, res) => {
+  const { profile_id, room_id } = req.body;
+  if (!profile_id || !room_id) return res.status(400).json({ error: 'profile_id + room_id required' });
+
+  db.prepare('DELETE FROM room_members WHERE room_id=? AND profile_id=?').run(room_id, profile_id);
+
+  const room = db.prepare('SELECT * FROM rooms WHERE id=?').get(room_id);
+  if (room) {
+    const remaining = db.prepare('SELECT COUNT(*) as cnt FROM room_members WHERE room_id=?').get(room_id).cnt;
+    if (remaining === 0) {
+      // Empty room — delete it
+      db.prepare('DELETE FROM rooms WHERE id=?').run(room_id);
+      broadcast({ type: 'room_closed', room_id });
+    } else {
+      // Transfer host if needed
+      if (room.host_id === profile_id) {
+        const newHost = db.prepare('SELECT profile_id FROM room_members WHERE room_id=? LIMIT 1').get(room_id);
+        if (newHost) db.prepare('UPDATE rooms SET host_id=? WHERE id=?').run(newHost.profile_id, room_id);
+      }
+      const updated = getRoomWithMembers(room_id);
+      broadcastToRoom(room_id, { type: 'player_left', profile_id, room: updated });
+    }
+  }
+  res.json({ ok: true });
+});
+
+// POST /rooms/ready — toggle ready state
+app.post('/rooms/ready', (req, res) => {
+  const { profile_id, room_id, ready = true } = req.body;
+  if (!profile_id || !room_id) return res.status(400).json({ error: 'profile_id + room_id required' });
+
+  db.prepare('UPDATE room_members SET ready=? WHERE room_id=? AND profile_id=?').run(ready ? 1 : 0, room_id, profile_id);
+  const updated = getRoomWithMembers(room_id);
+  broadcastToRoom(room_id, { type: 'room_update', room: updated });
+  res.json({ ok: true, room: updated });
+});
+
+// POST /rooms/start — host starts the game
+app.post('/rooms/start', (req, res) => {
+  const { profile_id, room_id } = req.body;
+  const room = db.prepare('SELECT * FROM rooms WHERE id=?').get(room_id);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+  if (room.host_id !== profile_id) return res.status(403).json({ error: 'Only host can start' });
+
+  db.prepare("UPDATE rooms SET status='in_game', updated_at=strftime('%s','now') WHERE id=?").run(room_id);
+  const updated = getRoomWithMembers(room_id);
+  broadcastToRoom(room_id, { type: 'game_start', room: updated });
+  res.json({ ok: true, room: updated });
+});
+
+// POST /rooms/state — player sends their game state tick to room
+// This is the real-time relay — game calls this ~10x/sec
+app.post('/rooms/state', (req, res) => {
+  const { profile_id, room_id, state } = req.body;
+  if (!profile_id || !room_id) return res.status(400).json({ error: 'profile_id + room_id required' });
+
+  // Update member state in DB (for reconnects)
+  db.prepare('UPDATE room_members SET state=? WHERE room_id=? AND profile_id=?')
+    .run(JSON.stringify(state || {}), room_id, profile_id);
+
+  // Relay state to all OTHER members in the room via WebSocket
+  broadcastToRoom(room_id, { type: 'player_state', profile_id, state: state || {} }, profile_id);
+  res.json({ ok: true });
+});
+
+// GET /rooms — list open rooms for a game
+app.get('/rooms', (req, res) => {
+  const { game_id } = req.query;
+  const rooms = game_id
+    ? db.prepare("SELECT * FROM rooms WHERE game_id=? AND status='waiting'").all(game_id)
+    : db.prepare("SELECT * FROM rooms WHERE status='waiting'").all();
+  res.json(rooms.map(r => getRoomWithMembers(r.id)).filter(Boolean));
+});
+
+// GET /rooms/:id — get room state
+app.get('/rooms/:id', (req, res) => {
+  const room = getRoomWithMembers(req.params.id);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+  res.json(room);
+});
+
+// POST /rooms/findOrCreate — join an open room or create one
+app.post('/rooms/findOrCreate', (req, res) => {
+  const { profile_id, game_id, mode = 'coop', max_players = 4 } = req.body;
+  if (!profile_id || !game_id) return res.status(400).json({ error: 'profile_id + game_id required' });
+
+  // Find a waiting room with space
+  const existing = db.prepare(`
+    SELECT r.id FROM rooms r
+    LEFT JOIN room_members rm ON rm.room_id=r.id
+    WHERE r.game_id=? AND r.mode=? AND r.status='waiting'
+    GROUP BY r.id HAVING COUNT(rm.profile_id) < r.max_players
+    ORDER BY r.created_at ASC LIMIT 1
+  `).get(game_id, mode);
+
+  if (existing) {
+    // Join it
+    db.prepare('DELETE FROM room_members WHERE profile_id=?').run(profile_id);
+    db.prepare('INSERT OR IGNORE INTO room_members (room_id, profile_id) VALUES (?,?)').run(existing.id, profile_id);
+    const room = getRoomWithMembers(existing.id);
+    broadcastToRoom(existing.id, { type: 'player_joined', profile_id, room });
+    return res.json({ ok: true, room, created: false });
+  }
+
+  // Create new room
+  db.prepare('DELETE FROM room_members WHERE profile_id=?').run(profile_id);
+  const id = roomCode();
+  db.prepare('INSERT INTO rooms (id, game_id, mode, host_id, max_players) VALUES (?,?,?,?,?)').run(id, game_id, mode, profile_id, max_players);
+  db.prepare('INSERT INTO room_members (room_id, profile_id) VALUES (?,?)').run(id, profile_id);
+  const room = getRoomWithMembers(id);
+  broadcast({ type: 'room_created', room });
+  res.json({ ok: true, room, created: true });
+});
+
+// ── WebSocket room relay helper ────────────────────────────────────────────────
+function broadcastToRoom(room_id, data, excludeProfileId = null) {
+  const members = db.prepare('SELECT profile_id FROM room_members WHERE room_id=?').all(room_id);
+  const memberIds = members.map(m => m.profile_id).filter(id => id !== excludeProfileId);
+  if (memberIds.length > 0) broadcast(data, memberIds);
+}
+
 // ── Crash ticker ─────────────────────────────────────────────────────────────
 // POST /crash/run — game calls this when a crash round ends; broadcasts to all
 app.post('/crash/run', (req, res) => {
@@ -972,12 +1190,30 @@ app.post('/presence/ping', (req, res) => {
     db.prepare('UPDATE presence SET playtime_total = playtime_total + ? WHERE profile_id = ?').run(cappedSeconds, profile_id);
   }
 
-  stmts.upsertPing.run(profile_id, normGameId(game_id), game_state ? JSON.stringify(game_state) : null, current_game);
+  // Priority: game pings win over launcher pings
+  // If this ping is from the launcher (no game_id or game_id='launcher'),
+  // keep the existing game_id if it was updated recently (within 120s)
+  const LAUNCHER_PING = LAUNCHER_IDS.has(game_id);
+  let effectiveGameId  = normGameId(game_id);
+  let effectiveState   = game_state;
+
+  if (LAUNCHER_PING) {
+    const existing = db.prepare('SELECT game_id, game_state, updated_at FROM presence WHERE profile_id = ?').get(profile_id);
+    const recentGame = existing && !LAUNCHER_IDS.has(existing.game_id) && existing.game_id
+      && (now - (existing.updated_at || 0)) < 120;
+    if (recentGame) {
+      // Game is still active — keep its game_id and state, don't overwrite
+      effectiveGameId = existing.game_id;
+      effectiveState  = existing.game_state ? safeJSON(existing.game_state, null) : null;
+    }
+  }
+
+  stmts.upsertPing.run(profile_id, effectiveGameId, effectiveState ? JSON.stringify(effectiveState) : null, current_game || effectiveGameId);
 
   // Broadcast with full profile NP so launcher can update instantly
   const prof = stmts.getProfile.get(profile_id);
   const title = getLevelTitle(prof?.level || 1);
-  broadcast({ type: 'presence', profile_id, online: true, game_id: normGameId(game_id), game_state, current_game, np: prof?.np || 0, level: prof?.level || 1, title });
+  broadcast({ type: 'presence', profile_id, online: true, game_id: effectiveGameId, game_state: effectiveState, current_game: current_game || effectiveGameId, np: prof?.np || 0, level: prof?.level || 1, title });
   res.json({ ok: true, np_awarded, np: prof?.np || 0, level: prof?.level || 1, title });
 });
 
@@ -1397,6 +1633,39 @@ wss.on('connection', (ws, req) => {
 
       if (msg.type === 'ping') {
         ws.send(JSON.stringify({ type: 'pong', ts: Date.now() }));
+      }
+
+      // ── Room state relay — pure WS, no DB, no HTTP overhead ──────────────
+      // Game sends this ~20-60x/sec for real-time multiplayer
+      if (msg.type === 'room_state' && msg.room_id && profileId) {
+        // Relay to all other members of the room immediately — in-memory only
+        const members = db.prepare('SELECT profile_id FROM room_members WHERE room_id=?').all(msg.room_id);
+        const payload  = JSON.stringify({
+          type:       'player_state',
+          profile_id: profileId,
+          state:      msg.state || {},
+          ts:         Date.now(),
+        });
+        for (const m of members) {
+          if (m.profile_id === profileId) continue; // don't echo back to sender
+          const sockets = clients.get(m.profile_id);
+          if (sockets) {
+            for (const sock of sockets) {
+              if (sock.readyState === WebSocket.OPEN) sock.send(payload);
+            }
+          }
+        }
+      }
+
+      // ── Room event relay (join/leave/ready signals via WS) ────────────────
+      if (msg.type === 'room_event' && msg.room_id && profileId) {
+        const members = db.prepare('SELECT profile_id FROM room_members WHERE room_id=?').all(msg.room_id);
+        const payload  = JSON.stringify({ ...msg, profile_id: profileId, ts: Date.now() });
+        for (const m of members) {
+          if (m.profile_id === profileId) continue;
+          const sockets = clients.get(m.profile_id);
+          if (sockets) for (const sock of sockets) { if (sock.readyState === WebSocket.OPEN) sock.send(payload); }
+        }
       }
     } catch (e) {
       // bad json — ignore
