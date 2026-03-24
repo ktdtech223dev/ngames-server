@@ -1159,8 +1159,8 @@ app.post('/rooms/:id/leave', (req, res) => {
   const room = db.prepare('SELECT * FROM rooms WHERE id=?').get(room_id);
   if (room) {
     const remaining = db.prepare('SELECT COUNT(*) as cnt FROM room_members WHERE room_id=?').get(room_id).cnt;
-    // Persistent rooms (named, not auto-generated codes) never get deleted when empty
-    const isPersistent = room_id === 'blacksarena-crew' || !/^[A-Z]+-\d{4}$/.test(room_id);
+    // Only the N Arena crew room is persistent — all other rooms delete when empty
+    const isPersistent = room_id === 'blacksarena-crew';
     if (remaining === 0 && !isPersistent) {
       db.prepare('DELETE FROM rooms WHERE id=?').run(room_id);
       broadcast({ type: 'room_closed', room_id });
