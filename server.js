@@ -44,7 +44,7 @@ const GAMES = [
     id:          'blacks-dungeon',
     name:        'Shape of Blacks',
     owner:       'sean',
-    status:      'construction',
+    status:      'live',
     version:     '0.1',
     description: 'A roguelike dungeon crawler. Descend into darkness.',
     url:         'https://github.com/solanocodes/sob',
