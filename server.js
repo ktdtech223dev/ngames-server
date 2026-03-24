@@ -1005,7 +1005,7 @@ app.post('/rooms/create', (req, res) => {
     }
     const updated = getRoomWithMembers(requested_id);
     broadcastToRoom(requested_id, { type: 'player_joined', profile_id, room: updated });
-    return res.json({ ok: true, room_id: requested_id, players: updated.members.map(m => ({ profile_id: m.profile_id, character: safeJSON(m.state, {}).character || null })), mode: updated.mode, map });
+    return res.json({ ok: true, room: updated, room_id: requested_id, players: updated.members.map(m => ({ profile_id: m.profile_id, character: safeJSON(m.state, {}).character || null })), mode: updated.mode, map });
   }
 
   // Standard room creation with generated code
@@ -1022,7 +1022,7 @@ app.post('/rooms/create', (req, res) => {
   const room = getRoomWithMembers(id);
   broadcast({ type: 'room_created', room });
   console.log(`[Room] ${profile_id} created room ${id} (${game_id}/${mode})`);
-  res.json({ ok: true, room_id: id, players: room.members.map(m => ({ profile_id: m.profile_id, character: safeJSON(m.state, {}).character || null })), mode, map });
+  res.json({ ok: true, room, room_id: id, players: room.members.map(m => ({ profile_id: m.profile_id, character: safeJSON(m.state, {}).character || null })), mode, map });
 });
 
 // POST /rooms/join
@@ -1183,6 +1183,7 @@ app.get('/rooms/:id', (req, res) => {
   // Return in format game expects: { room_id, players, mode, map }
   res.json({
     ...room,
+    id:       room.id,
     room_id:  room.id,
     players:  room.members.map(m => ({
       profile_id: m.profile_id,
