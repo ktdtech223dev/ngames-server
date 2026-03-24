@@ -42,14 +42,14 @@ const GAMES = [
   },
   {
     id:          'project-x',
-    name:        'Project X',
+    name:        'N Arena',
     owner:       'keshawn',
-    status:      'construction',
+    status:      'live',
     version:     null,
-    description: '[REDACTED]',
-    url:         null,
+    description: "4 N's One Arena",
+    url:         'https://github.com/ktdtech223dev/nigarena',
     art_url:     null,
-    tags:        JSON.stringify(['secret']),
+    tags:        JSON.stringify(['shooter','arena','multiplayer']),
   },
   {
     id:          'blacks-dungeon',
@@ -534,6 +534,41 @@ function initDB() {
     { id:'ng_title_maverick',game_id:'ngames',       name:'Maverick',              description:'Reach the Maverick title (Level 25)',      icon:'🎭', type:'progress', goal:25,    xp_reward:500, secret:false },
     { id:'ng_title_king',    game_id:'ngames',       name:'King',                  description:'Reach the King title (Level 40)',          icon:'♛',  type:'progress', goal:40,    xp_reward:1000,secret:false },
     { id:'ng_nmaster',       game_id:'ngames',       name:'N Master',              description:'Reach N Master (Level 50)',                icon:'👑', type:'progress', goal:50,    xp_reward:5000,secret:false },
+
+    // ── Black's Arena (project-x) ────────────────────────────────────────────
+    { id:'first_blood',        game_id:'project-x', name:"First Blood",          description:'Get your first kill',                      icon:'🩸', type:'unlock',   goal:1,     xp_reward:50,  secret:false },
+    { id:'ten_kills',          game_id:'project-x', name:'On A Roll',            description:'Get 10 kills in a single match',           icon:'🔥', type:'progress', goal:10,    xp_reward:75,  secret:false },
+    { id:'twenty_kills',       game_id:'project-x', name:'Rampage',              description:'Get 20 kills in a single match',           icon:'💥', type:'progress', goal:20,    xp_reward:150, secret:false },
+    { id:'fifty_career',       game_id:'project-x', name:'Veteran',              description:'50 career kills',                         icon:'🎯', type:'progress', goal:50,    xp_reward:100, secret:false },
+    { id:'hundred_career',     game_id:'project-x', name:'Centurion',            description:'100 career kills',                        icon:'💯', type:'progress', goal:100,   xp_reward:200, secret:false },
+    { id:'five_hundred_career',game_id:'project-x', name:'Legend',               description:'500 career kills',                        icon:'👑', type:'progress', goal:500,   xp_reward:500, secret:false },
+    { id:'streak_3',           game_id:'project-x', name:'Triple Kill',          description:'3 kill streak without dying',             icon:'⚡', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'streak_5',           game_id:'project-x', name:'Unstoppable',          description:'5 kill streak without dying',             icon:'🌪️', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'streak_10',          game_id:'project-x', name:'Godlike',              description:'10 kill streak without dying',            icon:'⚡', type:'unlock',   goal:1,     xp_reward:300, secret:false },
+    { id:'streak_15',          game_id:'project-x', name:'???',                  description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:500, secret:true  },
+    { id:'first_win',          game_id:'project-x', name:'Winner',               description:'Win your first match',                    icon:'🏆', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'ten_wins',           game_id:'project-x', name:'Consistent',           description:'Win 10 matches',                          icon:'🥇', type:'progress', goal:10,    xp_reward:200, secret:false },
+    { id:'flawless',           game_id:'project-x', name:'Flawless',             description:'Win a match without dying',               icon:'🛡️', type:'unlock',   goal:1,     xp_reward:300, secret:false },
+    { id:'wave_5',             game_id:'project-x', name:'Wave Breaker',         description:'Survive wave 5',                          icon:'🌊', type:'progress', goal:5,     xp_reward:75,  secret:false },
+    { id:'wave_10',            game_id:'project-x', name:'Survivor',             description:'Survive wave 10',                         icon:'💀', type:'progress', goal:10,    xp_reward:150, secret:false },
+    { id:'wave_20',            game_id:'project-x', name:'???',                  description:'???',                                     icon:'❓', type:'progress', goal:20,    xp_reward:400, secret:true  },
+    { id:'play_keshawn',       game_id:'project-x', name:'The Aggressive Guy',   description:'Play as Keshawn',                         icon:'♣', type:'unlock',   goal:1,     xp_reward:25,  secret:false },
+    { id:'play_sean',          game_id:'project-x', name:'The Stock Guy',        description:'Play as Sean',                            icon:'♦', type:'unlock',   goal:1,     xp_reward:25,  secret:false },
+    { id:'play_dart',          game_id:'project-x', name:'The Nuke Guy',         description:'Play as Dart',                            icon:'♥', type:'unlock',   goal:1,     xp_reward:25,  secret:false },
+    { id:'play_amari',         game_id:'project-x', name:'The Camera Guy',       description:'Play as Amari',                           icon:'♠', type:'unlock',   goal:1,     xp_reward:25,  secret:false },
+    { id:'all_chars',          game_id:'project-x', name:'Full Roster',          description:'Play as all 4 characters',                icon:'👥', type:'progress', goal:4,     xp_reward:150, secret:false },
+    { id:'sniper_ace',         game_id:'project-x', name:'Sniper Ace',           description:'Get 5 kills with the sniper in one match',icon:'🎯', type:'progress', goal:5,     xp_reward:150, secret:false },
+    { id:'rocket_man',         game_id:'project-x', name:'Rocket Man',           description:'Get 10 rocket kills career',              icon:'🚀', type:'progress', goal:10,    xp_reward:100, secret:false },
+    { id:'minigun_madness',    game_id:'project-x', name:'Minigun Madness',      description:'Fire 1000 minigun rounds career',         icon:'🔫', type:'progress', goal:1000,  xp_reward:150, secret:false },
+    { id:'weapon_throw_kill',  game_id:'project-x', name:'???',                  description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:200, secret:true  },
+    { id:'pickup_collector',   game_id:'project-x', name:'Hoarder',              description:'Collect 50 pickups career',               icon:'📦', type:'progress', goal:50,    xp_reward:100, secret:false },
+    { id:'ctf_cap',            game_id:'project-x', name:'Flag Runner',          description:'Capture the flag',                        icon:'🚩', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'last_man',           game_id:'project-x', name:'Last Man Standing',    description:'Win a Last Man Standing match',           icon:'🏴', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'ability_kill',       game_id:'project-x', name:'Special Delivery',     description:'Get a kill with your ability',            icon:'✨', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'midair_kill',        game_id:'project-x', name:'Air Time',             description:'Get a kill while airborne',               icon:'🦅', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'play_all_maps',      game_id:'project-x', name:'World Tour',           description:'Play on every map',                       icon:'🗺️', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'hundred_games',      game_id:'project-x', name:'Dedicated',            description:'Play 100 matches',                        icon:'🎖️', type:'progress', goal:100,   xp_reward:300, secret:false },
+    { id:'nuke_earned',        game_id:'project-x', name:'???',                  description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:500, secret:true  },
   ];
   for (const a of ACHIEVEMENTS) upsertAch.run({ game_mode: null, secret: 0, ...a, secret: a.secret ? 1 : 0 });
 
@@ -855,7 +890,7 @@ app.get('/casino/history/:profile_id', (req, res) => {
 
 // ── App Config ───────────────────────────────────────────────────────────────
 
-// GET /config — returns all config values (public, launcher fetches on boot)
+// GET /config — returns all config values
 app.get('/config', (req, res) => {
   const rows = db.prepare('SELECT key, value FROM app_config').all();
   const cfg  = {};
@@ -863,17 +898,43 @@ app.get('/config', (req, res) => {
   res.json(cfg);
 });
 
-// POST /config — update a config value (God Panel only, requires admin key)
+// GET /config/:game_id — returns config scoped to a game
+app.get('/config/:game_id', (req, res) => {
+  const prefix = req.params.game_id + ':';
+  const rows   = db.prepare("SELECT key, value FROM app_config WHERE key LIKE ? OR key=?").all(prefix + '%', 'launcher_title');
+  const cfg    = {};
+  for (const r of rows) cfg[r.key.replace(prefix, '')] = r.value;
+  // Seed defaults for project-x
+  if (req.params.game_id === 'project-x' && !cfg.title) cfg.title = "Black's Arena";
+  res.json(cfg);
+});
+
+// POST /config — update config value (generic, God Panel)
 app.post('/config', (req, res) => {
   const { key, value, admin_key } = req.body;
   if (admin_key !== ADMIN_KEY) return res.status(401).json({ error: 'Unauthorized' });
-  if (!key || value == null)   return res.status(400).json({ error: 'key + value required' });
+  if (!key || value == null) return res.status(400).json({ error: 'key + value required' });
   db.prepare(`INSERT INTO app_config (key, value, updated_at) VALUES (?, ?, strftime('%s','now'))
     ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`).run(key, String(value));
-  // Broadcast to all connected clients so they update live
   broadcast({ type: 'config_update', key, value: String(value) });
   res.json({ ok: true });
 });
+
+// PUT /config/:game_id — update game-scoped config (game dev can call this)
+app.put('/config/:game_id', (req, res) => {
+  const { admin_key, ...updates } = req.body;
+  if (admin_key !== ADMIN_KEY) return res.status(401).json({ error: 'Unauthorized' });
+  const game_id = req.params.game_id;
+  for (const [k, v] of Object.entries(updates)) {
+    const key = `${game_id}:${k}`;
+    db.prepare(`INSERT INTO app_config (key, value, updated_at) VALUES (?, ?, strftime('%s','now'))
+      ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`).run(key, String(v));
+    broadcast({ type: 'config_update', key: k, value: String(v), game_id });
+  }
+  res.json({ ok: true });
+});
+
+
 
 // ── Multiplayer Rooms ─────────────────────────────────────────────────────────
 
@@ -1009,6 +1070,58 @@ app.get('/rooms', (req, res) => {
     ? db.prepare("SELECT * FROM rooms WHERE game_id=? AND status='waiting'").all(game_id)
     : db.prepare("SELECT * FROM rooms WHERE status='waiting'").all();
   res.json(rooms.map(r => getRoomWithMembers(r.id)).filter(Boolean));
+});
+
+// POST /rooms/:id/join — alias (game uses parameterized form)
+app.post('/rooms/:id/join', (req, res) => {
+  const { profile_id, character } = req.body;
+  const room_id = req.params.id;
+  if (!profile_id || !room_id) return res.status(400).json({ error: 'profile_id required' });
+
+  const room = db.prepare('SELECT * FROM rooms WHERE id=?').get(room_id);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+  if (room.status === 'in_game') return res.status(400).json({ error: 'Game already in progress' });
+
+  const memberCount = db.prepare('SELECT COUNT(*) as cnt FROM room_members WHERE room_id=?').get(room_id).cnt;
+  if (memberCount >= room.max_players) return res.status(400).json({ error: 'Room is full' });
+
+  db.prepare('DELETE FROM room_members WHERE profile_id=?').run(profile_id);
+  db.prepare('INSERT OR IGNORE INTO room_members (room_id, profile_id) VALUES (?,?)').run(room_id, profile_id);
+
+  // Store character in state
+  if (character) {
+    db.prepare('UPDATE room_members SET state=? WHERE room_id=? AND profile_id=?')
+      .run(JSON.stringify({ character }), room_id, profile_id);
+  }
+
+  const updated = getRoomWithMembers(room_id);
+  broadcastToRoom(room_id, { type: 'player_joined', profile_id, room: updated });
+  res.json({ ok: true, room_id, players: updated.members });
+});
+
+// POST /rooms/:id/leave — alias
+app.post('/rooms/:id/leave', (req, res) => {
+  const { profile_id } = req.body;
+  const room_id = req.params.id;
+  if (!profile_id || !room_id) return res.status(400).json({ error: 'profile_id required' });
+
+  db.prepare('DELETE FROM room_members WHERE room_id=? AND profile_id=?').run(room_id, profile_id);
+  const room = db.prepare('SELECT * FROM rooms WHERE id=?').get(room_id);
+  if (room) {
+    const remaining = db.prepare('SELECT COUNT(*) as cnt FROM room_members WHERE room_id=?').get(room_id).cnt;
+    if (remaining === 0) {
+      db.prepare('DELETE FROM rooms WHERE id=?').run(room_id);
+      broadcast({ type: 'room_closed', room_id });
+    } else {
+      if (room.host_id === profile_id) {
+        const newHost = db.prepare('SELECT profile_id FROM room_members WHERE room_id=? LIMIT 1').get(room_id);
+        if (newHost) db.prepare('UPDATE rooms SET host_id=? WHERE id=?').run(newHost.profile_id, room_id);
+      }
+      const updated = getRoomWithMembers(room_id);
+      broadcastToRoom(room_id, { type: 'player_left', profile_id, room: updated });
+    }
+  }
+  res.json({ ok: true });
 });
 
 // GET /rooms/:id — get room state
