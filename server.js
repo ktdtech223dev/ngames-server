@@ -41,6 +41,17 @@ const GAMES = [
     tags:        JSON.stringify(['casino','roguelike','poker','blackjack','slots','crash','roulette']),
   },
   {
+    id:          'blacks-dungeon',
+    name:        'Shape of Blacks',
+    owner:       'sean',
+    status:      'construction',
+    version:     '0.1',
+    description: 'A roguelike dungeon crawler. Descend into darkness.',
+    url:         'https://github.com/solanocodes/sob',
+    art_url:     '/assets/blacks-dungeon-banner.png',
+    tags:        JSON.stringify(['roguelike','dungeon','action']),
+  },
+  {
     id:          'chaos-holdem',
     name:        'Chaos Hold\'Em',
     owner:       'keshawn',
@@ -50,17 +61,6 @@ const GAMES = [
     url:         'https://chaos-holdem-server3-production.up.railway.app',
     art_url:     '/assets/chaos-holdem-banner.png',
     tags:        JSON.stringify(['poker', 'roguelike', 'cards']),
-  },
-  {
-    id:          'blacks-dungeon',
-    name:        'Shape of Blacks',
-    owner:       'sean',
-    status:      'construction',
-    version:     null,
-    description: 'Shape of Blacks. Under construction.',
-    url:         null,
-    art_url:     null,
-    tags:        JSON.stringify(['action', 'roguelike']),
   },
 ];
 
@@ -458,6 +458,36 @@ function initDB() {
     { id:'xg_duel_streak',   game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:300, secret:true  },
     { id:'xg_all_same_day',  game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:300, secret:true  },
     { id:'xg_pristine',      game_id:'chaos-casino', name:'???',                   description:'???',                                     icon:'❓', type:'unlock',   goal:1,     xp_reward:400, secret:true  },
+    // ── Shape of Blacks ──────────────────────────────────────────────────────────
+    { id:'sob_first_kill',       game_id:'blacks-dungeon', name:'First Blood',         description:'Get your first kill',                    icon:'🗡️', type:'unlock',   goal:1,    xp_reward:25,   secret:false },
+    { id:'sob_kill_100',         game_id:'blacks-dungeon', name:'Centurion',           description:'Kill 100 enemies in one run',             icon:'💀', type:'progress', goal:100,  xp_reward:100,  secret:false },
+    { id:'sob_kill_500',         game_id:'blacks-dungeon', name:'Massacre',            description:'Kill 500 enemies in one run',             icon:'☠️', type:'progress', goal:500,  xp_reward:250,  secret:false },
+    { id:'sob_kills_total',      game_id:'blacks-dungeon', name:'Slayer',              description:'1,000 total kills across all runs',       icon:'🏆', type:'progress', goal:1000, xp_reward:300,  secret:false },
+    { id:'sob_reach_lvl10',      game_id:'blacks-dungeon', name:'Getting Stronger',    description:'Reach level 10 in a run',                icon:'📈', type:'progress', goal:10,   xp_reward:75,   secret:false },
+    { id:'sob_reach_lvl20',      game_id:'blacks-dungeon', name:'Powerhouse',          description:'Reach level 20 in a run',                icon:'💪', type:'progress', goal:20,   xp_reward:150,  secret:false },
+    { id:'sob_beat_floor1',      game_id:'blacks-dungeon', name:'Ashen Victor',        description:'Beat the Ashen Warden',                  icon:'🔴', type:'unlock',   goal:1,    xp_reward:100,  secret:false },
+    { id:'sob_beat_floor3',      game_id:'blacks-dungeon', name:'Deep Diver',          description:'Reach the Shadow Crypt',                 icon:'🟡', type:'unlock',   goal:1,    xp_reward:150,  secret:false },
+    { id:'sob_beat_game',        game_id:'blacks-dungeon', name:'Pyreheart Restored',  description:'Beat all 6 floors',                      icon:'👑', type:'unlock',   goal:1,    xp_reward:500,  secret:false },
+    { id:'sob_all_shards',       game_id:'blacks-dungeon', name:'Shard Collector',     description:'Collect all 6 Pyreheart Shards',         icon:'💎', type:'unlock',   goal:1,    xp_reward:400,  secret:false },
+    { id:'sob_nightmare_win',    game_id:'blacks-dungeon', name:'Nightmare Conquered', description:'Beat Nightmare mode',                    icon:'👹', type:'unlock',   goal:1,    xp_reward:1000, secret:true  },
+    { id:'sob_first_evo',        game_id:'blacks-dungeon', name:'Evolution',           description:'Evolve your first weapon',               icon:'⟐',  type:'unlock',   goal:1,    xp_reward:100,  secret:false },
+    { id:'sob_max_weapon',       game_id:'blacks-dungeon', name:'Maxed Out',           description:'Max a weapon to level 6',                icon:'⚔️', type:'unlock',   goal:1,    xp_reward:150,  secret:false },
+    { id:'sob_legendary_weapon', game_id:'blacks-dungeon', name:'Jackpot!',            description:'Get a legendary weapon',                 icon:'🌟', type:'unlock',   goal:1,    xp_reward:200,  secret:false },
+    { id:'sob_epic_weapon',      game_id:'blacks-dungeon', name:'Purple Rain',         description:'Get an epic weapon',                     icon:'💎', type:'unlock',   goal:1,    xp_reward:100,  secret:false },
+    { id:'sob_6_weapons',        game_id:'blacks-dungeon', name:'Arsenal',             description:'Have 6 weapons at once',                 icon:'🎒', type:'unlock',   goal:1,    xp_reward:150,  secret:false },
+    { id:'sob_8_weapons',        game_id:'blacks-dungeon', name:'Walking Armory',      description:'Have 8 weapons at once',                 icon:'🏋️', type:'unlock',   goal:1,    xp_reward:250,  secret:true  },
+    { id:'sob_buy_shop',         game_id:'blacks-dungeon', name:'Consumer',            description:'Buy from a shop',                        icon:'🛒', type:'unlock',   goal:1,    xp_reward:25,   secret:false },
+    { id:'sob_open_chest',       game_id:'blacks-dungeon', name:'Treasure Hunter',     description:'Open a chest',                           icon:'📦', type:'unlock',   goal:1,    xp_reward:50,   secret:false },
+    { id:'sob_use_ability',      game_id:'blacks-dungeon', name:'Special Move',        description:'Use your active ability',                icon:'✨', type:'unlock',   goal:1,    xp_reward:25,   secret:false },
+    { id:'sob_dash_master',      game_id:'blacks-dungeon', name:'Dash Master',         description:'Use 50 dashes in one run',               icon:'💨', type:'progress', goal:50,   xp_reward:100,  secret:false },
+    { id:'sob_gold_100',         game_id:'blacks-dungeon', name:'Pocket Change',       description:'Collect 100 gold in a run',              icon:'🪙', type:'progress', goal:100,  xp_reward:50,   secret:false },
+    { id:'sob_gold_500',         game_id:'blacks-dungeon', name:'Rich',                description:'Collect 500 gold in a run',              icon:'💰', type:'progress', goal:500,  xp_reward:100,  secret:false },
+    { id:'sob_no_damage_room',   game_id:'blacks-dungeon', name:'Untouchable',         description:'Clear a room without damage',            icon:'🛡️', type:'unlock',   goal:1,    xp_reward:150,  secret:true  },
+    { id:'sob_cursed_3',         game_id:'blacks-dungeon', name:'Unlucky',             description:'Have 3 curses at once',                  icon:'😈', type:'unlock',   goal:1,    xp_reward:100,  secret:true  },
+    { id:'sob_revive',           game_id:'blacks-dungeon', name:'Second Chance',       description:'Use a revive',                           icon:'💀', type:'unlock',   goal:1,    xp_reward:75,   secret:true  },
+    { id:'sob_speed_floor',      game_id:'blacks-dungeon', name:'Speedrunner',         description:'Clear a floor in under 60 seconds',      icon:'⏱️', type:'unlock',   goal:1,    xp_reward:200,  secret:true  },
+    { id:'sob_death_ray_get',    game_id:'blacks-dungeon', name:'Impossible Find',     description:'Obtain the Death Ray',                   icon:'☠️', type:'unlock',   goal:1,    xp_reward:300,  secret:true  },
+    { id:'sob_all_passives',     game_id:'blacks-dungeon', name:'Enlightened',         description:'Max all passives',                       icon:'🧘', type:'unlock',   goal:1,    xp_reward:400,  secret:true  },
     // ── N GAMES NETWORK (Launcher) ────────────────────────────────────────────
     { id:'ng_first_session', game_id:'ngames',       name:'Welcome',               description:'Submit your first session',               icon:'🌐', type:'unlock',   goal:1,     xp_reward:50,  secret:false },
     { id:'ng_wall_post',     game_id:'ngames',       name:'Broadcaster',           description:'Post to the wall 10 times',               icon:'📢', type:'progress', goal:10,    xp_reward:100, secret:false },
@@ -677,16 +707,17 @@ app.post('/achievements/unlock', (req, res) => {
 
   stmts.upsertProgress.run({ profile_id, achievement_id, progress: newProgress, unlocked, unlocked_at });
 
-  // Award XP on first unlock
+  // Award NP on first unlock
   if (unlocked && !wasUnlocked) {
     const prof = stmts.getProfile.get(profile_id);
     if (prof) {
       const newNP  = (prof.np || 0) + ach.xp_reward;
-      const newLvl = Math.min(100, Math.floor(Math.sqrt(newNP / 100)) + 1);
+      const newLvl = calcLevel(newNP);
       stmts.updateNP.run(ach.xp_reward, newLvl, profile_id);
     }
+    // Broadcast with full achievement object so launcher can show toast + update cache
     broadcast({ type: 'achievement_unlock', profile_id, achievement_id, achievement: ach });
-    console.log(`[Achievement] ${profile_id} unlocked ${achievement_id} (+${ach.xp_reward} XP)`);
+    console.log(`[Achievement] ${profile_id} unlocked ${achievement_id} (+${ach.xp_reward} NP)`);
   }
 
   res.json({ ok: true, unlocked: unlocked === 1, progress: newProgress, np_awarded: unlocked && !wasUnlocked ? ach.xp_reward : 0 });
