@@ -518,8 +518,8 @@ async function openConvo(profileId){
 function appendBubble(m){const h=document.getElementById('msg-history');if(!h)return;const me=m.from_id===currentProfile?.id;const d=document.createElement('div');d.className=`msg-bubble ${me?'me':'them'}`;d.innerHTML=`${esc(m.content)}<div class="msg-time">just now</div>`;h.appendChild(d);h.scrollTop=h.scrollHeight;}
 async function sendMsg(){const inp=document.getElementById('msg-input');const content=inp?.value?.trim();if(!content||!activeConvo||!currentProfile)return;inp.value='';try{await fetch('/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from_id:currentProfile.id,to_id:activeConvo,content})});appendBubble({from_id:currentProfile.id,to_id:activeConvo,content,created_at:Math.floor(Date.now()/1000)});}catch(e){}}
 
-function gameShortName(id){return{'project-x':'Arena','chaos-casino':'Casino','chaos-holdem':'Casino','blacks-dungeon':'Shape','launcher':'Launcher','mobile':'Mobile'}[id]||id;}
-function gameEmoji(id){return{'project-x':'🎯','chaos-casino':'🃏','chaos-holdem':'🃏','blacks-dungeon':'🎮'}[id]||'🎲';}
+function gameShortName(id){return{'case-sim':'Cases','project-x':'Arena','chaos-casino':'Casino','chaos-holdem':'Casino','blacks-dungeon':'Shape','launcher':'Launcher','mobile':'Mobile'}[id]||id;}
+function gameEmoji(id){return{'case-sim':'📦','project-x':'🎯','chaos-casino':'🃏','chaos-holdem':'🃏','blacks-dungeon':'🎮'}[id]||'🎲';}
 function summarizeState(s){if(!s)return '';if(typeof s==='string'){try{s=JSON.parse(s);}catch(e){return s;}}if(s.screen==='in_run')return `Hand ${s.hand||0} · ${(s.chips||0).toLocaleString()}c`;if(s.screen==='in_boss')return 'Boss!';if(s.screen==='in_shop')return 'Shop';if(s.screen==='in_menu')return 'Menu';return s.screen||'';}
 function timeAgo(ts){const s=Math.floor(Date.now()/1000)-ts;if(s<60)return 'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
 function esc(str){return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}

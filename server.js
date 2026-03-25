@@ -41,6 +41,28 @@ const GAMES = [
     tags:        JSON.stringify(['casino','roguelike','poker','blackjack','slots','crash','roulette']),
   },
   {
+    id:          'case-sim',
+    name:        'Case Sim',
+    owner:       'keshawn',
+    status:      'live',
+    version:     '1.1.3',
+    description: 'CS:GO Case Simulator — open cases, collect skins, gamble with the crew',
+    url:         'https://csgo-case-sim-production.up.railway.app',
+    art_url:     null,
+    tags:        JSON.stringify(['casino','cases','skins','gambling']),
+  },
+  {
+    id:          'case-sim',
+    name:        'Case Sim',
+    owner:       'keshawn',
+    status:      'live',
+    version:     '1.1.3',
+    description: 'CS:GO Case Simulator — open cases, collect skins, gamble with the crew',
+    url:         'https://csgo-case-sim-production.up.railway.app',
+    art_url:     null,
+    tags:        JSON.stringify(['casino','cases','gambling','idle']),
+  },
+  {
     id:          'project-x',
     name:        'N Arena',
     owner:       'keshawn',
@@ -593,6 +615,19 @@ function initDB() {
     { id:'no_miss',            game_id:'project-x', name:'???',                   description:'???',                                      icon:'❓', type:'unlock',   goal:1,     xp_reward:300, secret:true  },
     { id:'throw_5',            game_id:'project-x', name:'Pitcher',               description:'Throw 5 weapons in one match',             icon:'🪃', type:'progress', goal:5,     xp_reward:100, secret:false },
     { id:'ten_throw',          game_id:'project-x', name:'???',                   description:'???',                                      icon:'❓', type:'progress', goal:10,    xp_reward:200, secret:true  },
+
+    // ── Case Sim (case-sim) ────────────────────────────────────────────────────
+    { id:'cs_first_case',         game_id:'case-sim', name:'First Unboxing',        description:'Open your first case',                     icon:'📦', type:'unlock',   goal:1,     xp_reward:50,  secret:false },
+    { id:'cs_opened_100_cases',   game_id:'case-sim', name:'Case Addict',           description:'Open 100 cases',                           icon:'📦', type:'progress', goal:100,   xp_reward:200, secret:false },
+    { id:'cs_first_knife',        game_id:'case-sim', name:'Knife Drop',            description:'Unbox your first knife',                   icon:'🔪', type:'unlock',   goal:1,     xp_reward:500, secret:false },
+    { id:'cs_won_10_coinflips',   game_id:'case-sim', name:'Coin Master',           description:'Win 10 coinflips',                         icon:'🪙', type:'progress', goal:10,    xp_reward:150, secret:false },
+    { id:'cs_crash_10x',          game_id:'case-sim', name:'To The Moon',           description:'Cash out at 10x or higher in Crash',       icon:'🚀', type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    { id:'cs_roulette_green',     game_id:'case-sim', name:'Lucky Green',           description:'Hit green on Roulette',                    icon:'🟢', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'cs_inventory_1k',       game_id:'case-sim', name:'High Roller',           description:'Inventory worth $1,000+',                  icon:'💰', type:'unlock',   goal:1,     xp_reward:300, secret:false },
+    { id:'cs_big_spender',        game_id:'case-sim', name:'Big Spender',           description:'Spend $100+ total',                        icon:'💸', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'cs_first_tradeup',      game_id:'case-sim', name:'Trade Up',              description:'Complete your first trade-up contract',    icon:'🔄', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'cs_covert_unbox',       game_id:'case-sim', name:'Red Day',               description:'Unbox a Covert (red) item',                icon:'🔴', type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    { id:'cs_stattrak_unbox',     game_id:'case-sim', name:'StatTrak™',             description:'Unbox a StatTrak™ item',                   icon:'🟠', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
   ];
   for (const a of ACHIEVEMENTS) upsertAch.run({ game_mode: null, secret: 0, ...a, secret: a.secret ? 1 : 0 });
 
