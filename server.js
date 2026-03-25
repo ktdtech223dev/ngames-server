@@ -999,6 +999,7 @@ app.post('/rooms/create', (req, res) => {
     }
     // Add player to room (store character in state)
     db.prepare('INSERT OR IGNORE INTO room_members (room_id, profile_id) VALUES (?,?)').run(requested_id, profile_id);
+    cacheRoomAdd(requested_id, profile_id);
     if (character) {
       db.prepare('UPDATE room_members SET state=? WHERE room_id=? AND profile_id=?')
         .run(JSON.stringify({ character }), requested_id, profile_id);
@@ -1009,12 +1010,14 @@ app.post('/rooms/create', (req, res) => {
   }
 
   // Standard room creation with generated code
+  for (const [rid, members] of roomMembers) { if (members.has(profile_id)) cacheRoomRemove(rid, profile_id); }
   db.prepare('DELETE FROM room_members WHERE profile_id=?').run(profile_id);
   const id = roomCode();
   db.prepare(`INSERT INTO rooms (id, game_id, mode, host_id, max_players) VALUES (?,?,?,?,?)`)
     .run(id, game_id, mode, profile_id, max_players);
   db.prepare(`INSERT INTO room_members (room_id, profile_id) VALUES (?,?)`)
     .run(id, profile_id);
+  cacheRoomAdd(id, profile_id);
   if (character) {
     db.prepare('UPDATE room_members SET state=? WHERE room_id=? AND profile_id=?')
       .run(JSON.stringify({ character }), id, profile_id);
@@ -1038,8 +1041,10 @@ app.post('/rooms/join', (req, res) => {
   if (memberCount >= room.max_players) return res.status(400).json({ error: 'Room is full' });
 
   // Remove from any other room first
+  for (const [rid, members] of roomMembers) { if (members.has(profile_id)) cacheRoomRemove(rid, profile_id); }
   db.prepare('DELETE FROM room_members WHERE profile_id=?').run(profile_id);
   db.prepare(`INSERT OR IGNORE INTO room_members (room_id, profile_id) VALUES (?,?)`).run(room_id, profile_id);
+  cacheRoomAdd(room_id, profile_id);
 
   const updated = getRoomWithMembers(room_id);
   broadcast({ type: 'room_update', room: updated });
@@ -1053,6 +1058,7 @@ app.post('/rooms/leave', (req, res) => {
   if (!profile_id || !room_id) return res.status(400).json({ error: 'profile_id + room_id required' });
 
   db.prepare('DELETE FROM room_members WHERE room_id=? AND profile_id=?').run(room_id, profile_id);
+  cacheRoomRemove(room_id, profile_id);
 
   const room = db.prepare('SELECT * FROM rooms WHERE id=?').get(room_id);
   if (room) {
@@ -1135,8 +1141,10 @@ app.post('/rooms/:id/join', (req, res) => {
   const memberCount = db.prepare('SELECT COUNT(*) as cnt FROM room_members WHERE room_id=?').get(room_id).cnt;
   if (memberCount >= room.max_players) return res.status(400).json({ error: 'Room is full' });
 
+  for (const [rid, members] of roomMembers) { if (members.has(profile_id)) cacheRoomRemove(rid, profile_id); }
   db.prepare('DELETE FROM room_members WHERE profile_id=?').run(profile_id);
   db.prepare('INSERT OR IGNORE INTO room_members (room_id, profile_id) VALUES (?,?)').run(room_id, profile_id);
+  cacheRoomAdd(room_id, profile_id);
 
   // Store character in state
   if (character) {
@@ -1156,6 +1164,7 @@ app.post('/rooms/:id/leave', (req, res) => {
   if (!profile_id || !room_id) return res.status(400).json({ error: 'profile_id required' });
 
   db.prepare('DELETE FROM room_members WHERE room_id=? AND profile_id=?').run(room_id, profile_id);
+  cacheRoomRemove(room_id, profile_id);
   const room = db.prepare('SELECT * FROM rooms WHERE id=?').get(room_id);
   if (room) {
     const remaining = db.prepare('SELECT COUNT(*) as cnt FROM room_members WHERE room_id=?').get(room_id).cnt;
@@ -1212,18 +1221,22 @@ app.post('/rooms/findOrCreate', (req, res) => {
 
   if (existing) {
     // Join it
+    for (const [rid, members] of roomMembers) { if (members.has(profile_id)) cacheRoomRemove(rid, profile_id); }
     db.prepare('DELETE FROM room_members WHERE profile_id=?').run(profile_id);
     db.prepare('INSERT OR IGNORE INTO room_members (room_id, profile_id) VALUES (?,?)').run(existing.id, profile_id);
+    cacheRoomAdd(existing.id, profile_id);
     const room = getRoomWithMembers(existing.id);
     broadcastToRoom(existing.id, { type: 'player_joined', profile_id, room });
     return res.json({ ok: true, room, created: false });
   }
 
   // Create new room
+  for (const [rid, members] of roomMembers) { if (members.has(profile_id)) cacheRoomRemove(rid, profile_id); }
   db.prepare('DELETE FROM room_members WHERE profile_id=?').run(profile_id);
   const id = roomCode();
   db.prepare('INSERT INTO rooms (id, game_id, mode, host_id, max_players) VALUES (?,?,?,?,?)').run(id, game_id, mode, profile_id, max_players);
   db.prepare('INSERT INTO room_members (room_id, profile_id) VALUES (?,?)').run(id, profile_id);
+  cacheRoomAdd(id, profile_id);
   const room = getRoomWithMembers(id);
   broadcast({ type: 'room_created', room });
   res.json({ ok: true, room, created: true });
@@ -1789,10 +1802,32 @@ app.get('/games/:id', (req, res) => {
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
 
+// Seed room membership cache from DB on boot
+try {
+  const rows = db.prepare('SELECT room_id, profile_id FROM room_members').all();
+  for (const r of rows) cacheRoomAdd(r.room_id, r.profile_id);
+  console.log(`[Cache] Seeded ${rows.length} room memberships`);
+} catch(e) {}
+
 const wss = new WebSocketServer({ server });
 
 // Map profile_id → Set of ws clients
 const clients = new Map(); // profile_id → Set<ws>
+
+// In-memory room membership cache for zero-DB relay at 60Hz
+// room_id → Set<profile_id>
+const roomMembers = new Map();
+function cacheRoomAdd(room_id, profile_id) {
+  if (!roomMembers.has(room_id)) roomMembers.set(room_id, new Set());
+  roomMembers.get(room_id).add(profile_id);
+}
+function cacheRoomRemove(room_id, profile_id) {
+  const s = roomMembers.get(room_id);
+  if (s) { s.delete(profile_id); if (s.size === 0) roomMembers.delete(room_id); }
+}
+function cacheGetMembers(room_id) {
+  return roomMembers.get(room_id) || new Set();
+}
 
 wss.on('connection', (ws, req) => {
   let profileId = null;
@@ -1816,21 +1851,18 @@ wss.on('connection', (ws, req) => {
       // ── Room state relay — pure WS, no DB, no HTTP overhead ──────────────
       // Game sends this ~20-60x/sec for real-time multiplayer
       if (msg.type === 'room_state' && msg.room_id && profileId) {
-        // Relay to all other members of the room immediately — in-memory only
-        const members = db.prepare('SELECT profile_id FROM room_members WHERE room_id=?').all(msg.room_id);
-        const payload  = JSON.stringify({
+        // Pure in-memory relay — zero DB hits at 60Hz
+        const payload = JSON.stringify({
           type:       'player_state',
           profile_id: profileId,
           state:      msg.state || {},
           ts:         Date.now(),
         });
-        for (const m of members) {
-          if (m.profile_id === profileId) continue; // don't echo back to sender
-          const sockets = clients.get(m.profile_id);
-          if (sockets) {
-            for (const sock of sockets) {
-              if (sock.readyState === WebSocket.OPEN) sock.send(payload);
-            }
+        for (const pid of cacheGetMembers(msg.room_id)) {
+          if (pid === profileId) continue;
+          const sockets = clients.get(pid);
+          if (sockets) for (const sock of sockets) {
+            if (sock.readyState === WebSocket.OPEN) sock.send(payload);
           }
         }
       }
@@ -1839,7 +1871,7 @@ wss.on('connection', (ws, req) => {
       // Game sends: { type: "room_event", room_id, event, data }
       // Relay as:   { type: "room_event", event, data, profile_id, ts }
       if (msg.type === 'room_event' && msg.room_id && profileId) {
-        const members = db.prepare('SELECT profile_id FROM room_members WHERE room_id=?').all(msg.room_id);
+        const members = [...cacheGetMembers(msg.room_id)].map(p => ({ profile_id: p }));
         const payload  = JSON.stringify({
           type:       'room_event',
           event:      msg.event,
