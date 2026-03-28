@@ -41,6 +41,17 @@ const GAMES = [
     tags:        JSON.stringify(['casino','roguelike','poker','blackjack','slots','crash','roulette']),
   },
   {
+    id:          'cuunsurf',
+    name:        'CuunSurf',
+    owner:       'keshawn',
+    status:      'live',
+    version:     '1.0.0',
+    description: 'Surf maps, set records, collect knives.',
+    url:         'https://github.com/ktdtech223dev/surf-game',
+    art_url:     '/assets/cuunsurf-banner.png',
+    tags:        JSON.stringify(['surf','racing','fps']),
+  },
+  {
     id:          'case-sim',
     name:        'Case Sim',
     owner:       'keshawn',
@@ -617,6 +628,26 @@ function initDB() {
     { id:'cs_first_tradeup',      game_id:'case-sim', name:'Trade Up',              description:'Complete your first trade-up contract',    icon:'🔄', type:'unlock',   goal:1,     xp_reward:100, secret:false },
     { id:'cs_covert_unbox',       game_id:'case-sim', name:'Red Day',               description:'Unbox a Covert (red) item',                icon:'🔴', type:'unlock',   goal:1,     xp_reward:200, secret:false },
     { id:'cs_stattrak_unbox',     game_id:'case-sim', name:'StatTrak™',             description:'Unbox a StatTrak™ item',                   icon:'🟠', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+
+    // ── CuunSurf (cuunsurf) ────────────────────────────────────────────────────
+    { id:'cuunsurf_speed_500',    game_id:'cuunsurf', name:'Speeding',              description:'Hit 500 u/s',                              icon:'💨', type:'unlock',   goal:1,     xp_reward:75,  secret:false },
+    { id:'cuunsurf_speed_800',    game_id:'cuunsurf', name:'Supersonic',            description:'Hit 800 u/s',                              icon:'⚡', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'cuunsurf_speed_1200',   game_id:'cuunsurf', name:'Lightspeed',            description:'Hit 1200 u/s',                             icon:'🚀', type:'unlock',   goal:1,     xp_reward:300, secret:false },
+    { id:'cuunsurf_first_run',    game_id:'cuunsurf', name:'First Drop',            description:'Complete your first run',                  icon:'🏄', type:'unlock',   goal:1,     xp_reward:50,  secret:false },
+    { id:'cuunsurf_sub_60',       game_id:'cuunsurf', name:'Under a Minute',        description:'Finish a map in under 60 seconds',         icon:'⏱️', type:'unlock',   goal:1,     xp_reward:150, secret:false },
+    { id:'cuunsurf_sub_30',       game_id:'cuunsurf', name:'Blink',                 description:'Finish a map in under 30 seconds',         icon:'⚡', type:'unlock',   goal:1,     xp_reward:300, secret:true  },
+    { id:'cuunsurf_first_kill',   game_id:'cuunsurf', name:'Blood in the Water',    description:'Get your first kill',                      icon:'🔪', type:'unlock',   goal:1,     xp_reward:50,  secret:false },
+    { id:'cuunsurf_kills_10',     game_id:'cuunsurf', name:'Aggressor',             description:'10 kills in one session',                  icon:'💀', type:'progress', goal:10,    xp_reward:150, secret:false },
+    { id:'cuunsurf_beginner_all', game_id:'cuunsurf', name:'Just Getting Started',  description:'Complete all beginner maps',               icon:'🟢', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'cuunsurf_inter_all',    game_id:'cuunsurf', name:'Getting Serious',       description:'Complete all intermediate maps',           icon:'🟡', type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    { id:'cuunsurf_advanced_all', game_id:'cuunsurf', name:'Advanced Surfer',       description:'Complete all advanced maps',               icon:'🟠', type:'unlock',   goal:1,     xp_reward:350, secret:false },
+    { id:'cuunsurf_expert_all',   game_id:'cuunsurf', name:'???',                   description:'???',                                      icon:'❓', type:'unlock',   goal:1,     xp_reward:500, secret:true  },
+    { id:'cuunsurf_ghost_buster', game_id:'cuunsurf', name:'Ghost Buster',          description:'Beat the world record ghost',              icon:'👻', type:'unlock',   goal:1,     xp_reward:400, secret:false },
+    { id:'cuunsurf_daily_grind',  game_id:'cuunsurf', name:'Daily Grind',           description:'Complete a daily challenge',               icon:'📅', type:'unlock',   goal:1,     xp_reward:100, secret:false },
+    { id:'cuunsurf_weekender',    game_id:'cuunsurf', name:'Weekender',             description:'Complete a weekly challenge',              icon:'🗓️', type:'unlock',   goal:1,     xp_reward:200, secret:false },
+    { id:'cuunsurf_knife_collector',game_id:'cuunsurf',name:'Knife Collector',      description:'Unlock 5 knives',                          icon:'🔪', type:'progress', goal:5,     xp_reward:150, secret:false },
+    { id:'cuunsurf_knife_arsenal',game_id:'cuunsurf', name:'Arsenal',               description:'Unlock 16 knives',                         icon:'⚔️', type:'progress', goal:16,    xp_reward:300, secret:false },
+    { id:'cuunsurf_knife_all',    game_id:'cuunsurf', name:'???',                   description:'???',                                      icon:'❓', type:'progress', goal:32,    xp_reward:750, secret:true  },
   ];
   for (const a of ACHIEVEMENTS) upsertAch.run({ game_mode: null, secret: 0, ...a, secret: a.secret ? 1 : 0 });
 
