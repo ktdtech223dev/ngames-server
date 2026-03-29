@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>N Games — Banner Upload</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #111; color: rgba(255,255,255,0.9);
+  font-family: -apple-system, 'Segoe UI', sans-serif;
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.panel {
+  background: #1a1a1a; border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px; padding: 32px; width: 100%; max-width: 480px;
+}
+h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+h1 span { color: #80e060; }
+.sub { font-size: 12px; color: rgba(255,255,255,0.35); margin-bottom: 24px; }
+
+label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); text-transform: uppercase; display: block; margin-bottom: 6px; }
+input, select {
+  width: 100%; background: #222; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 10px 12px; color: rgba(255,255,255,0.9);
+  font-size: 13px; font-family: inherit; outline: none; margin-bottom: 16px;
+}
+input:focus, select:focus { border-color: rgba(255,255,255,0.2); }
+
+.drop-zone {
+  border: 2px dashed rgba(255,255,255,0.12); border-radius: 10px;
+  padding: 32px; text-align: center; cursor: pointer;
+  transition: border-color 0.15s; margin-bottom: 16px;
+}
+.drop-zone:hover, .drop-zone.drag { border-color: #80e060; }
+.drop-zone .icon { font-size: 32px; margin-bottom: 8px; }
+.drop-zone p { font-size: 12px; color: rgba(255,255,255,0.4); }
+.drop-zone input[type=file] { display: none; }
+
+#preview {
+  display: none; width: 100%; max-height: 200px; object-fit: cover;
+  border-radius: 8px; margin-bottom: 16px;
+}
+
+.btn {
+  width: 100%; padding: 12px; border: none; border-radius: 8px;
+  background: #80e060; color: #000; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: opacity 0.15s;
+}
+.btn:hover { opacity: 0.85; }
+.btn:disabled { opacity: 0.4; cursor: default; }
+
+#result {
+  margin-top: 16px; padding: 12px 14px; border-radius: 8px;
+  font-size: 12px; display: none;
+}
+#result.ok  { background: rgba(61,220,132,0.12); color: #3ddc84; border: 1px solid rgba(61,220,132,0.25); }
+#result.err { background: rgba(224,64,64,0.12);  color: #e04040; border: 1px solid rgba(224,64,64,0.25); }
+</style>
+</head>
+<body>
+<div class="panel">
+  <h1>N <span>Games</span> Banner Upload</h1>
+  <p class="sub">Upload a game banner to the N Games server</p>
+
+  <label>Server URL</label>
+  <input id="server-url" type="text" value="https://ngames-server-production.up.railway.app" placeholder="https://...">
+
+  <label>Admin Key</label>
+  <input id="admin-key" type="password" placeholder="ngames-admin">
+
+  <label>Game</label>
+  <select id="game-id">
+    <option value="chaos-casino">Chaos Casino</option>
+    <option value="blacks-dungeon">Shape of Blacks</option>
+    <option value="project-x">N Arena</option>
+    <option value="case-sim">Case Sim</option>
+    <option value="cuunsurf">CuunSurf</option>
+  </select>
+
+  <label>Banner Image (PNG or JPG, ~400x533px)</label>
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <div class="icon">🖼</div>
+    <p>Click to browse or drag & drop</p>
+    <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp">
+  </div>
+  <img id="preview" alt="Preview">
+
+  <button class="btn" id="upload-btn" onclick="upload()" disabled>Upload Banner</button>
+  <div id="result"></div>
+</div>
+
+<script>
+let fileData = null;
+let fileName = null;
+
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const preview  = document.getElementById('preview');
+const btn      = document.getElementById('upload-btn');
+
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+function handleFile(file) {
+  if (!file) return;
+  fileName = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    fileData = e.target.result; // base64 data URL
+    preview.src = fileData;
+    preview.style.display = 'block';
+    btn.disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function upload() {
+  const server   = document.getElementById('server-url').value.trim().replace(/\/$/, '');
+  const key      = document.getElementById('admin-key').value.trim();
+  const game_id  = document.getElementById('game-id').value;
+  const result   = document.getElementById('result');
+
+  if (!fileData) { showResult('No file selected', false); return; }
+  if (!key)      { showResult('Admin key required', false); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Uploading...';
+  result.style.display = 'none';
+
+  try {
+    const res = await fetch(`${server}/admin/games/${game_id}/art`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, image_base64: fileData, filename: fileName }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showResult(`✓ Banner uploaded — ${server}${data.art_url}`, true);
+    } else {
+      showResult(`Error: ${data.error}`, false);
+    }
+  } catch(e) {
+    showResult(`Failed: ${e.message}`, false);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Upload Banner';
+}
+
+function showResult(msg, ok) {
+  const el = document.getElementById('result');
+  el.textContent = msg;
+  el.className = ok ? 'ok' : 'err';
+  el.style.display = 'block';
+}
+</script>
+</body>
+</html>

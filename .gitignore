@@ -1,0 +1,6 @@
+node_modules/
+ngames.db
+ngames.db-wal
+ngames.db-shm
+*.db
+.env
