@@ -61,6 +61,11 @@ const GAMES = [
     version: '1.0.0', description: 'Surf game. Hit max speed.',
     url: null, art_url: null, tags: JSON.stringify(['surf','speed','skill']),
   },
+  {
+    id: 'nkart', name: 'N Kart', owner: 'keshawn', status: 'live',
+    version: '1.0.0', description: '3D kart racing for the crew. 16 tracks, 4 cups, drift physics, items, and online multiplayer.',
+    url: null, art_url: '/assets/nkart-banner.png', tags: JSON.stringify(['racing','multiplayer','3D']),
+  },
 ];
 
 const ACHIEVEMENTS = [
@@ -108,6 +113,17 @@ const ACHIEVEMENTS = [
   { id:'ch_first_win',        game_id:'chaos-casino',   game_mode:'poker',    name:'First Win',         description:'Win your first hand',                    icon:'🃏', np_reward:50,   goal:1,     secret:0 },
   { id:'ch_first_run',        game_id:'chaos-casino',   game_mode:'poker',    name:'First Run',         description:'Complete your first run',                icon:'🎲', np_reward:100,  goal:1,     secret:0 },
   { id:'ch_big_win',          game_id:'chaos-casino',   game_mode:'poker',    name:'High Roller',       description:'Win over 5000 chips in one run',         icon:'💰', np_reward:500,  goal:5000,  secret:0 },
+  // nkart
+  { id:'nkart_first_race',  game_id:'nkart', game_mode:null, name:'First Race',     description:'Complete your first race',                     icon:'🏎️', np_reward:50,   goal:1,   secret:0 },
+  { id:'nkart_first_win',   game_id:'nkart', game_mode:null, name:'First Win',      description:'Win your first race',                          icon:'🏆', np_reward:100,  goal:1,   secret:0 },
+  { id:'nkart_podium_5',    game_id:'nkart', game_mode:null, name:'On the Podium',  description:'Finish on the podium 5 times',                 icon:'🥉', np_reward:150,  goal:5,   secret:0 },
+  { id:'nkart_win_10',      game_id:'nkart', game_mode:null, name:'Race Winner',    description:'Win 10 races',                                 icon:'🏅', np_reward:300,  goal:10,  secret:0 },
+  { id:'nkart_gp_champ',    game_id:'nkart', game_mode:'gp', name:'GP Champion',    description:'Win a Grand Prix',                             icon:'🏆', np_reward:400,  goal:1,   secret:0 },
+  { id:'nkart_all_cups',    game_id:'nkart', game_mode:'gp', name:'All Cups',       description:'Win all 4 cups',                               icon:'👑', np_reward:1000, goal:4,   secret:0 },
+  { id:'nkart_time_attack', game_id:'nkart', game_mode:'ta', name:'Time Attacker',  description:'Complete a Time Attack run',                   icon:'⏱️', np_reward:75,   goal:1,   secret:0 },
+  { id:'nkart_item_hunter', game_id:'nkart', game_mode:null, name:'Item Hunter',    description:'Use 50 items in races',                        icon:'💣', np_reward:200,  goal:50,  secret:0 },
+  { id:'nkart_perfect_gp',  game_id:'nkart', game_mode:'gp', name:'Flawless',       description:'Win every race in a Grand Prix',               icon:'⭐', np_reward:750,  goal:1,   secret:1 },
+  { id:'nkart_drift_king',  game_id:'nkart', game_mode:null, name:'Drift King',     description:'Win a race while drifting the most',           icon:'🔥', np_reward:250,  goal:1,   secret:1 },
 ];
 
 const CUSTOM_TITLES = [
@@ -608,6 +624,30 @@ const server = http.createServer(app);
 
 app.use(cors());
 app.use(express.json());
+
+// ── Static assets (banners) ───────────────────────────────────────────────────
+// On Railway, serve from /data/assets (persistent volume). Locally from assets/.
+const DATA_ASSETS = fs.existsSync('/data') ? '/data/assets' : path.join(__dirname, 'assets');
+if (!fs.existsSync(DATA_ASSETS)) fs.mkdirSync(DATA_ASSETS, { recursive: true });
+// Copy bundled assets into volume on first boot
+const SRC_ASSETS = path.join(__dirname, 'assets');
+if (fs.existsSync(SRC_ASSETS)) {
+  for (const f of fs.readdirSync(SRC_ASSETS)) {
+    const dst = path.join(DATA_ASSETS, f);
+    if (!fs.existsSync(dst)) fs.copyFileSync(path.join(SRC_ASSETS, f), dst);
+  }
+}
+app.use('/assets', express.static(DATA_ASSETS));
+// Banner upload endpoint (admin)
+app.post('/admin/upload-banner', express.raw({ type: 'image/*', limit: '5mb' }), (req, res) => {
+  const key    = req.headers['x-admin-key'];
+  const gameId = req.headers['x-game-id'];
+  if (key !== 'ngames-admin') return res.status(403).json({ error: 'Forbidden' });
+  if (!gameId) return res.status(400).json({ error: 'x-game-id header required' });
+  const dest = path.join(DATA_ASSETS, gameId + '-banner.png');
+  fs.writeFileSync(dest, req.body);
+  res.json({ ok: true, path: '/assets/' + gameId + '-banner.png' });
+});
 
 app.get('/',       (_, res) => res.json({ service: 'N Games Network', status: 'ok', ts: Date.now() }));
 app.get('/health', (_, res) => res.json({ ok: true }));
