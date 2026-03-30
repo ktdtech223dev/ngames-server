@@ -378,6 +378,8 @@ function initDB() {
   // Add outcome/game_mode to sessions if missing
   try { db.exec(`ALTER TABLE sessions ADD COLUMN outcome TEXT`); } catch (_) {}
   try { db.exec(`ALTER TABLE sessions ADD COLUMN game_mode TEXT`); } catch (_) {}
+  // Add game_mode to achievements if missing (added in v1.5.0)
+  try { db.exec(`ALTER TABLE achievements ADD COLUMN game_mode TEXT`); } catch (_) {}
 
   // ── Seed crew ───────────────────────────────────────────────────────────────
   const upsertProfile = db.prepare(`
