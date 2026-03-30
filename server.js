@@ -80,7 +80,7 @@ const ACHIEVEMENTS = [
   { id:'ng_level_50',         game_id:'ngames',         game_mode:null,       name:'N Master',          description:'Reach the level cap',                    icon:'👑', np_reward:5000, goal:50,    secret:0 },
   { id:'ng_win_10',           game_id:'ngames',         game_mode:null,       name:'Ten Wins',          description:'Win 10 sessions across any game',         icon:'🏆', np_reward:200,  goal:10,    secret:0 },
   { id:'ng_win_50',           game_id:'ngames',         game_mode:null,       name:'Winner',            description:'Win 50 sessions',                         icon:'🥇', np_reward:500,  goal:50,    secret:0 },
-  { id:'ng_all_games',        game_id:'ngames',         game_mode:null,       name:'All In',            description:'Play every game in the library',          icon:'🗃️', np_reward:400,  goal:5,     secret:0 },
+  { id:'ng_all_games',        game_id:'ngames',         game_mode:null,       name:'All In',            description:'Play every game in the library',          icon:'🗃️', np_reward:400,  goal:6,     secret:0 },
   // N Arena
   { id:'first_blood',         game_id:'project-x',      game_mode:null,       name:'First Blood',       description:'Get your first kill',                    icon:'🩸', np_reward:50,   goal:1,     secret:0 },
   { id:'streak_5',            game_id:'project-x',      game_mode:null,       name:'On a Roll',         description:'Get a 5 kill streak',                    icon:'🔥', np_reward:100,  goal:5,     secret:0 },
