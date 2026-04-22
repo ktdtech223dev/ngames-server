@@ -32,6 +32,8 @@ const CREW = [
   { id: 'sean',    name: 'Sean',    color: '#f0c040', suit: '♦', initial: 'S' },
   { id: 'dart',    name: 'Dart',    color: '#e04040', suit: '♥', initial: 'D' },
   { id: 'amari',   name: 'Amari',   color: '#40c0e0', suit: '♠', initial: 'A' },
+  { id: 'arisa',   name: 'Ari',     color: '#ff69b4', suit: '✿', initial: 'Ri' },
+  { id: 'tyheim',  name: 'Tyheim',  color: '#a855f7', suit: '⚡', initial: 'T' },
 ];
 
 const GAMES = [
@@ -655,6 +657,11 @@ app.post('/admin/upload-banner', express.raw({ type: 'image/*', limit: '5mb' }),
 
 app.get('/',       (_, res) => res.json({ service: 'N Games Network', status: 'ok', ts: Date.now() }));
 app.get('/health', (_, res) => res.json({ ok: true }));
+
+// ── Crew definition ───────────────────────────────────────────────────────────
+// Single source of truth — clients can fetch this instead of hardcoding.
+// Shape: [{ id, name, color, suit, initial }]
+app.get('/crew', (_, res) => res.json(CREW));
 
 // ── Profiles ──────────────────────────────────────────────────────────────────
 
