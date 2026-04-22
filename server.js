@@ -1293,6 +1293,36 @@ setInterval(() => {
   console.log(`[Seasons] Season ${season.id} ended. Winner: ${winner_id || 'none'}`);
 }, 3_600_000);
 
+// ─── N Streams activity bridge ────────────────────────────────────────────────
+// N Streams reports viewing milestones here; we broadcast them as
+// `nstreams_activity` WS events so the Discord bot can post them.
+
+app.post('/nstreams/activity', express.json(), (req, res) => {
+  const {
+    event_type, user_name, content_title, content_type,
+    poster_path, season, rating, total_episodes,
+  } = req.body || {};
+
+  if (!event_type || !user_name || !content_title) {
+    return res.status(400).json({ error: 'event_type, user_name, content_title required' });
+  }
+
+  broadcast({
+    type:           'nstreams_activity',
+    event_type,
+    user_name,
+    content_title,
+    content_type:   content_type   || 'tv',
+    poster_path:    poster_path    || null,
+    season:         season         || null,
+    rating:         rating         || null,
+    total_episodes: total_episodes || null,
+    ts:             Date.now(),
+  });
+
+  res.json({ ok: true });
+});
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 server.listen(PORT, () => {
