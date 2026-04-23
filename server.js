@@ -15,6 +15,7 @@
 const express    = require('express');
 const cors       = require('cors');
 const http       = require('http');
+const net        = require('net');
 const { WebSocketServer, WebSocket } = require('ws');
 const path       = require('path');
 const fs         = require('fs');
@@ -1191,10 +1192,55 @@ app.get('/bets/:profile_id', (req, res) => {
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
 
+const VPN_TOKEN = process.env.VPN_TOKEN || 'ngames-crew-vpn-7x4k';
+
+// VPN tunnel: proxies TCP connections on behalf of N Streams clients.
+// Client sends { token, host, port } as first JSON message, then raw
+// binary frames that are forwarded to the TCP socket — and vice versa.
+function handleVpnTunnel(ws) {
+  let tcp  = null;
+  let ready = false;
+
+  ws.on('message', (data, isBinary) => {
+    if (ready) {
+      // Tunnel open — forward raw bytes to the TCP target
+      if (tcp && !tcp.destroyed) tcp.write(data);
+      return;
+    }
+
+    // First message must be the JSON handshake
+    try {
+      const msg = JSON.parse(data.toString());
+      if (msg.token !== VPN_TOKEN) { ws.close(1008, 'Unauthorized'); return; }
+
+      tcp = net.connect(msg.port, msg.host);
+
+      tcp.on('connect', () => {
+        ready = true;
+        ws.send(JSON.stringify({ ok: true })); // tell client TCP is up
+      });
+
+      tcp.on('data', (chunk) => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(chunk);
+      });
+
+      tcp.on('error',  () => ws.close(1011, 'TCP error'));
+      tcp.on('close',  () => ws.close());
+    } catch {
+      ws.close(1008, 'Bad handshake');
+    }
+  });
+
+  ws.on('close',  () => tcp?.destroy());
+  ws.on('error',  () => tcp?.destroy());
+}
+
 const wss     = new WebSocketServer({ server });
 const clients = new Map(); // profile_id → Set<ws>
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  // Route VPN tunnel connections separately
+  if (req.url === '/vpn') { handleVpnTunnel(ws); return; }
   let profileId = null;
 
   ws.on('message', (raw) => {
