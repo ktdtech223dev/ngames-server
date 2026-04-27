@@ -69,6 +69,11 @@ const GAMES = [
     version: '1.0.0', description: '3D kart racing for the crew. 16 tracks, 4 cups, drift physics, items, and online multiplayer.',
     url: null, art_url: '/assets/nkart-banner.png', tags: JSON.stringify(['racing','multiplayer','3D']),
   },
+  {
+    id: 'interrogating-blacks', name: 'Interrogating Blacks', owner: 'keshawn', status: 'live',
+    version: '1.0.0', description: 'Crew trivia game. How well do you actually know Black culture, history, and the crew?',
+    url: null, art_url: '/assets/ib-banner.jpg', tags: JSON.stringify(['trivia','crew','knowledge']),
+  },
 ];
 
 const ACHIEVEMENTS = [
@@ -83,7 +88,7 @@ const ACHIEVEMENTS = [
   { id:'ng_level_50',         game_id:'ngames',         game_mode:null,       name:'N Master',          description:'Reach the level cap',                    icon:'👑', np_reward:5000, goal:50,    secret:0 },
   { id:'ng_win_10',           game_id:'ngames',         game_mode:null,       name:'Ten Wins',          description:'Win 10 sessions across any game',         icon:'🏆', np_reward:200,  goal:10,    secret:0 },
   { id:'ng_win_50',           game_id:'ngames',         game_mode:null,       name:'Winner',            description:'Win 50 sessions',                         icon:'🥇', np_reward:500,  goal:50,    secret:0 },
-  { id:'ng_all_games',        game_id:'ngames',         game_mode:null,       name:'All In',            description:'Play every game in the library',          icon:'🗃️', np_reward:400,  goal:6,     secret:0 },
+  { id:'ng_all_games',        game_id:'ngames',         game_mode:null,       name:'All In',            description:'Play every game in the library',          icon:'🗃️', np_reward:400,  goal:7,     secret:0 },
   // N Arena
   { id:'first_blood',         game_id:'project-x',      game_mode:null,       name:'First Blood',       description:'Get your first kill',                    icon:'🩸', np_reward:50,   goal:1,     secret:0 },
   { id:'streak_5',            game_id:'project-x',      game_mode:null,       name:'On a Roll',         description:'Get a 5 kill streak',                    icon:'🔥', np_reward:100,  goal:5,     secret:0 },
@@ -127,6 +132,17 @@ const ACHIEVEMENTS = [
   { id:'nkart_item_hunter', game_id:'nkart', game_mode:null, name:'Item Hunter',    description:'Use 50 items in races',                        icon:'💣', np_reward:200,  goal:50,  secret:0 },
   { id:'nkart_perfect_gp',  game_id:'nkart', game_mode:'gp', name:'Flawless',       description:'Win every race in a Grand Prix',               icon:'⭐', np_reward:750,  goal:1,   secret:1 },
   { id:'nkart_drift_king',  game_id:'nkart', game_mode:null, name:'Drift King',     description:'Win a race while drifting the most',           icon:'🔥', np_reward:250,  goal:1,   secret:1 },
+  // Interrogating Blacks
+  { id:'ib_first_answer',   game_id:'interrogating-blacks', game_mode:null,   name:'First Answer',    description:'Answer your first question correctly',         icon:'🎤', np_reward:50,   goal:1,   secret:0 },
+  { id:'ib_first_win',      game_id:'interrogating-blacks', game_mode:null,   name:'First Win',       description:'Win your first trivia game',                   icon:'🏆', np_reward:100,  goal:1,   secret:0 },
+  { id:'ib_streak_5',       game_id:'interrogating-blacks', game_mode:null,   name:'On a Roll',       description:'Answer 5 questions correctly in a row',        icon:'🔥', np_reward:150,  goal:5,   secret:0 },
+  { id:'ib_streak_10',      game_id:'interrogating-blacks', game_mode:null,   name:'Hot Streak',      description:'Answer 10 questions correctly in a row',       icon:'🔥', np_reward:300,  goal:10,  secret:0 },
+  { id:'ib_perfect_round',  game_id:'interrogating-blacks', game_mode:null,   name:'Perfect Round',   description:'Get every question right in a round',          icon:'💯', np_reward:500,  goal:1,   secret:0 },
+  { id:'ib_games_10',       game_id:'interrogating-blacks', game_mode:null,   name:'Regular',         description:'Play 10 trivia games',                         icon:'📚', np_reward:200,  goal:10,  secret:0 },
+  { id:'ib_wins_5',         game_id:'interrogating-blacks', game_mode:null,   name:'Quiz Kid',        description:'Win 5 trivia games',                           icon:'🥇', np_reward:300,  goal:5,   secret:0 },
+  { id:'ib_crew_win',       game_id:'interrogating-blacks', game_mode:'crew', name:'Crew Trivia',     description:'Win a crew trivia match',                      icon:'👥', np_reward:400,  goal:1,   secret:0 },
+  { id:'ib_quick_draw',     game_id:'interrogating-blacks', game_mode:null,   name:'Quick Draw',      description:'Answer correctly in under 3 seconds',          icon:'⚡', np_reward:250,  goal:1,   secret:1 },
+  { id:'ib_the_authority',  game_id:'interrogating-blacks', game_mode:null,   name:'The Authority',   description:'Win 20 trivia games',                          icon:'👑', np_reward:1000, goal:20,  secret:1 },
 ];
 
 const CUSTOM_TITLES = [
@@ -140,6 +156,7 @@ const CUSTOM_TITLES = [
   { title_id:'n_master',       title_text:'The N Master',  unlock_type:'level',       unlock_ref:'50',                    color:'#80e060', game_id:null            },
   { title_id:'legend',         title_text:'Legend',        unlock_type:'achievement', unlock_ref:'five_hundred_career',   color:'#ffd700', game_id:'project-x'    },
   { title_id:'crash_god',      title_text:'Crash God',     unlock_type:'achievement', unlock_ref:'cs_crash_10x',          color:'#ff4400', game_id:'case-sim'      },
+  { title_id:'the_authority', title_text:'The Authority', unlock_type:'achievement', unlock_ref:'ib_the_authority',      color:'#f0c040', game_id:'interrogating-blacks' },
 ];
 
 // Static challenge pools (rotated by day/week index)
@@ -158,6 +175,8 @@ const DAILY_CHALLENGES = [
   { title:'Chaos Player',     description:'Play a Chaos Casino session',            metric:'sessions',     goal:1,    np_reward:60,  game_id:'chaos-casino' },
   { title:'Combo Day',        description:'Play 2 sessions in any game',            metric:'sessions',     goal:2,    np_reward:90,  game_id:null           },
   { title:'Kill Streak',      description:'Get 20 kills in N Arena',               metric:'kills',        goal:20,   np_reward:150, game_id:'project-x'   },
+  { title:'Trivia Time',      description:'Play an Interrogating Blacks game',      metric:'sessions',     goal:1,    np_reward:60,  game_id:'interrogating-blacks' },
+  { title:'Know It All',      description:'Win 2 Interrogating Blacks games',       metric:'wins',         goal:2,    np_reward:100, game_id:'interrogating-blacks' },
 ];
 
 const WEEKLY_CHALLENGES = [
@@ -168,6 +187,7 @@ const WEEKLY_CHALLENGES = [
   { title:'Surf Pro',        description:'Complete 15 surf runs',                     metric:'sessions',     goal:15,    np_reward:400, game_id:'cuunsurf'    },
   { title:'Game Week',       description:'Play 20 sessions across any game',          metric:'sessions',     goal:20,    np_reward:300, game_id:null          },
   { title:'Dungeon Grind',   description:'Complete 5 Shape of Blacks runs',           metric:'sessions',     goal:5,     np_reward:450, game_id:'blacks-dungeon'},
+  { title:'Trivia Grind',    description:'Win 5 Interrogating Blacks games',          metric:'wins',         goal:5,     np_reward:400, game_id:'interrogating-blacks' },
 ];
 
 // ─── NP / Level helpers ───────────────────────────────────────────────────────
