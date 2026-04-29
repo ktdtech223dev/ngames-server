@@ -411,6 +411,23 @@ function initDB() {
     CREATE INDEX IF NOT EXISTS idx_bets_target      ON bets(target_id, status);
   `);
 
+  // ── N Streams crew stats relay ─────────────────────────────────────────────
+  // Stores a snapshot of each crew member's N Streams watch stats so that
+  // every device can see the full crew picture without needing shared DB access.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS nstreams_crew (
+      username             TEXT PRIMARY KEY,
+      display_name         TEXT,
+      avatar_color         TEXT,
+      watching_count       INTEGER DEFAULT 0,
+      completed_count      INTEGER DEFAULT 0,
+      plan_count           INTEGER DEFAULT 0,
+      this_week_json       TEXT    DEFAULT '[]',
+      recent_completed_json TEXT   DEFAULT '[]',
+      updated_at           DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // ── Migrations for existing Railway DB ──────────────────────────────────────
   // Rename xp → np if needed
   try { db.exec(`ALTER TABLE profiles RENAME COLUMN xp TO np`); } catch (_) {}
@@ -1358,6 +1375,80 @@ setInterval(() => {
   broadcast({ type: 'season_end', season_id: season.id, winner_id, winner_name: winnerProfile?.name });
   console.log(`[Seasons] Season ${season.id} ended. Winner: ${winner_id || 'none'}`);
 }, 3_600_000);
+
+// ─── N Streams crew stats relay ──────────────────────────────────────────────
+// Each N Streams instance pushes a stat snapshot here after any activity so
+// that every device can show the full crew picture on the Crew page.
+
+// GET /nstreams/crew — all crew snapshots
+app.get('/nstreams/crew', (req, res) => {
+  const rows = db.prepare('SELECT * FROM nstreams_crew ORDER BY username').all();
+  res.json(rows.map(r => ({
+    username:          r.username,
+    display_name:      r.display_name,
+    avatar_color:      r.avatar_color,
+    watching:          r.watching_count,
+    completed:         r.completed_count,
+    plan_to_watch:     r.plan_count,
+    this_week:         JSON.parse(r.this_week_json         || '[]'),
+    recent_completed:  JSON.parse(r.recent_completed_json  || '[]'),
+    updated_at:        r.updated_at,
+  })));
+});
+
+// GET /nstreams/crew/:username — single user snapshot
+app.get('/nstreams/crew/:username', (req, res) => {
+  const r = db.prepare('SELECT * FROM nstreams_crew WHERE username = ?').get(req.params.username);
+  if (!r) return res.status(404).json({ error: 'not found' });
+  res.json({
+    username:         r.username,
+    display_name:     r.display_name,
+    avatar_color:     r.avatar_color,
+    watching:         r.watching_count,
+    completed:        r.completed_count,
+    plan_to_watch:    r.plan_count,
+    this_week:        JSON.parse(r.this_week_json         || '[]'),
+    recent_completed: JSON.parse(r.recent_completed_json  || '[]'),
+    updated_at:       r.updated_at,
+  });
+});
+
+// POST /nstreams/crew/:username — push a user's stats snapshot
+app.post('/nstreams/crew/:username', express.json(), (req, res) => {
+  const { username } = req.params;
+  const {
+    display_name, avatar_color,
+    watching = 0, completed = 0, plan_to_watch = 0,
+    this_week = [], recent_completed = [],
+  } = req.body || {};
+
+  db.prepare(`
+    INSERT INTO nstreams_crew
+      (username, display_name, avatar_color, watching_count, completed_count,
+       plan_count, this_week_json, recent_completed_json, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(username) DO UPDATE SET
+      display_name          = excluded.display_name,
+      avatar_color          = excluded.avatar_color,
+      watching_count        = excluded.watching_count,
+      completed_count       = excluded.completed_count,
+      plan_count            = excluded.plan_count,
+      this_week_json        = excluded.this_week_json,
+      recent_completed_json = excluded.recent_completed_json,
+      updated_at            = CURRENT_TIMESTAMP
+  `).run(
+    username,
+    display_name  || username,
+    avatar_color  || '#6366f1',
+    Number(watching),
+    Number(completed),
+    Number(plan_to_watch),
+    JSON.stringify(this_week),
+    JSON.stringify(recent_completed),
+  );
+
+  res.json({ ok: true });
+});
 
 // ─── N Streams activity bridge ────────────────────────────────────────────────
 // N Streams reports viewing milestones here; we broadcast them as
