@@ -74,6 +74,11 @@ const GAMES = [
     version: '1.0.0', description: 'Crew trivia game. How well do you actually know Black culture, history, and the crew?',
     url: null, art_url: '/assets/ib-banner.jpg', tags: JSON.stringify(['trivia','crew','knowledge']),
   },
+  {
+    id: 'bbg', name: 'BBG (Black Bored Games)', owner: 'keshawn', status: 'live',
+    version: '1.0.0', description: 'Black board games for the crew.',
+    url: null, art_url: '/assets/bbg-banner.jpg', tags: JSON.stringify(['board','crew','party']),
+  },
 ];
 
 const ACHIEVEMENTS = [
