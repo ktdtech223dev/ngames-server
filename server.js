@@ -50,12 +50,12 @@ const GAMES = [
     url: null, art_url: null, tags: JSON.stringify(['action','roguelike','dungeon']),
   },
   {
-    id: 'project-x', name: 'N Arena', owner: 'keshawn', status: 'live',
+    id: 'project-x', name: 'N Arena', owner: 'keshawn', status: 'hidden',
     version: '1.0.0', description: 'Crew arena combat. Deathmatch and survival.',
     url: null, art_url: null, tags: JSON.stringify(['arena','combat','multiplayer']),
   },
   {
-    id: 'case-sim', name: 'Case Sim', owner: 'keshawn', status: 'live',
+    id: 'case-sim', name: 'Case Sim', owner: 'keshawn', status: 'paused',
     version: '2.0.1', description: 'CS-inspired case opening simulator.',
     url: null, art_url: null, tags: JSON.stringify(['casino','cases','skins']),
   },
@@ -65,7 +65,7 @@ const GAMES = [
     url: null, art_url: null, tags: JSON.stringify(['surf','speed','skill']),
   },
   {
-    id: 'nkart', name: 'N Kart', owner: 'keshawn', status: 'live',
+    id: 'nkart', name: 'N Kart', owner: 'keshawn', status: 'hidden',
     version: '1.0.0', description: '3D kart racing for the crew. 16 tracks, 4 cups, drift physics, items, and online multiplayer.',
     url: null, art_url: '/assets/nkart-banner.png', tags: JSON.stringify(['racing','multiplayer','3D']),
   },
@@ -1038,7 +1038,7 @@ app.get('/messages/unread/:profile_id', (req, res) => {
 // ── Games ─────────────────────────────────────────────────────────────────────
 
 app.get('/games', (_, res) => {
-  const rows = db.prepare(`SELECT * FROM games`).all();
+  const rows = db.prepare(`SELECT * FROM games WHERE status != 'hidden'`).all();
   res.json(rows.map(g => ({ ...g, tags: safeJSON(g.tags, []) })));
 });
 
